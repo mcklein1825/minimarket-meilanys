@@ -150,7 +150,7 @@ export default class StoreModel {
   }
 
   getCurrentUser() {
-    if (this.sessionUser && this.sessionUser.username) {
+    if (this.sessionUser && (this.sessionUser.username || this.sessionUser.email || this.sessionUser.usuario || this.sessionUser.id)) {
       return this.sessionUser;
     }
 
@@ -158,21 +158,34 @@ export default class StoreModel {
     if (!raw) return null;
     try {
       const user = JSON.parse(raw);
-      this.sessionUser = user && user.username ? user : null;
-      return this.sessionUser;
+      if (user && (user.username || user.email || user.usuario || user.id)) {
+        this.sessionUser = {
+          ...user,
+          username: user.username || user.usuario || user.email || 'usuario'
+        };
+        return this.sessionUser;
+      }
+      return null;
     } catch (error) {
       return null;
     }
   }
 
   setCurrentUser(user) {
-    this.sessionUser = user && user.username ? user : null;
     if (!user) {
+      this.sessionUser = null;
       localStorage.removeItem(this.STORAGE_SESSION);
       this.cart = {};
-    } else {
-      localStorage.setItem(this.STORAGE_SESSION, JSON.stringify(user));
+      return;
     }
+
+    const normalizedUser = {
+      ...user,
+      username: user.username || user.usuario || user.email || 'usuario'
+    };
+
+    this.sessionUser = normalizedUser;
+    localStorage.setItem(this.STORAGE_SESSION, JSON.stringify(normalizedUser));
   }
 
   async loadSession() {
