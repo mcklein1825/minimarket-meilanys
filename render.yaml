@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: minimarket-meilanys
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true

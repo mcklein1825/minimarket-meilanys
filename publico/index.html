@@ -1,0 +1,504 @@
+<!--
+Archivo: index.html
+Ruta: c:\xampp\htdocs\Empresa\Paginaweb_v1\index.html
+Proyecto: Empresa / Paginaweb_v1
+Nombre del proyecto: Minimarket Meilanys
+Fecha: 2026-08-24
+Autor: Yo, como responsable del desarrollo de esta tienda, creo y mantengo este archivo.
+Propósito: servir como página principal y punto de entrada de la experiencia de compra del minimarket.
+Tecnologías: HTML5, CSS3, JavaScript, diseño responsive.
+Dependencias: styles.css, script.js, main.js.
+Estado: activo y en uso.
+-->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minimarket Meilanys</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./recursos/estilos/styles.css">
+</head>
+<body>
+
+<div class="ticker">
+  <div class="ticker__track" id="tickerTrack"></div>
+</div>
+
+<header class="header" id="header">
+  <div class="header__inner">
+    <a class="logo" href="#inicio" aria-label="Minimarket Meilanys — inicio">
+      <span class="logo__mark">M</span>
+      <span class="logo__text">Minimarket Meilanys<small>Todo lo esencial, cerca de ti</small></span>
+    </a>
+
+    <nav class="categories-nav">
+      <button class="categories-toggle" id="catToggle" aria-expanded="false">
+        <span>☰</span> Categorías <span class="chev">▾</span>
+      </button>
+      <div class="categories-dropdown" id="catDropdown"></div>
+    </nav>
+
+    <div class="search">
+      <input type="text" id="headerSearch" placeholder="¿Qué buscas hoy?" autocomplete="off">
+      <button id="headerSearchBtn" aria-label="Buscar">Buscar</button>
+    </div>
+
+    <div class="header-actions">
+      <button class="action-btn" id="listasBtn"><span class="label">Mis listas</span></button>
+      <button class="action-btn" id="cuentaBtn"><span class="label">Mi cuenta</span></button>
+      <button class="action-btn cart-btn" id="cartOpenBtn">
+        <span class="label">Carrito</span>
+        <span class="cart-badge" id="cartBadge">0</span>
+      </button>
+    </div>
+
+    <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Abrir menú">☰</button>
+  </div>
+
+  <div class="delivery-bar">
+    <span>¿Cómo quieres recibir tu pedido?</span>
+    <button id="deliveryOpenBtn">Elegir</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- HERO -->
+  <section class="hero" id="inicio">
+    <div class="hero__content">
+      <span class="eyebrow">Directo del mercado</span>
+      <h1>Lo fresco no espera.</h1>
+      <p>Frutas, verduras, carnes y despensa completa, elegidas cada mañana. Arma tu pedido y recíbelo en tu puerta en menos de dos horas.</p>
+      <div class="hero__ctas">
+        <a href="#catalogo" class="btn btn--primary">Empezar a comprar</a>
+        <a href="#ofertas" class="btn btn--ghost">Ver ofertas de la semana</a>
+      </div>
+    </div>
+    <div class="hero__carousel" id="heroCarousel">
+      <div class="slide slide--1 active" data-index="0">
+        <span class="slide__icon">Oferta</span>
+        <span class="slide__tag">Frutas y verduras</span>
+        <h3>15% de descuento en paltas y cítricos</h3>
+        <p>Válido del 17 al 23 de agosto.</p>
+      </div>
+      <div class="slide slide--2" data-index="1">
+        <span class="slide__icon">Oferta</span>
+        <span class="slide__tag">Panadería del día</span>
+        <h3>2x1 en pan artesanal recién horneado</h3>
+        <p>Todos los días desde las 6:00 a.m.</p>
+      </div>
+      <div class="slide slide--3" data-index="2">
+        <span class="slide__icon">Oferta</span>
+        <span class="slide__tag">Congelados</span>
+        <h3>Hasta 30% en carnes y platos listos</h3>
+        <p>Stock limitado esta semana.</p>
+      </div>
+      <button class="carousel-arrow prev" id="carouselPrev" aria-label="Anterior">‹</button>
+      <button class="carousel-arrow next" id="carouselNext" aria-label="Siguiente">›</button>
+      <div class="carousel-dots" id="carouselDots"></div>
+    </div>
+  </section>
+
+  <!-- CATEGORIES -->
+  <section class="categories" id="categorias">
+    <div class="head reveal">
+      <span class="eyebrow">Pasillo por pasillo</span>
+      <h2 class="section-title">Explora todo lo que tenemos fresco</h2>
+      <p>Sin electrodomésticos ni tecnología — solo mercado, todos los días.</p>
+    </div>
+    <div class="category-grid" id="categoryGrid"></div>
+  </section>
+
+  <section class="business-highlights">
+    <div class="container">
+      <div class="head reveal">
+        <span class="eyebrow">Nuestra diferencia</span>
+        <h2 class="section-title">Un servicio pensado para negocios y hogares</h2>
+        <p>Diseñado para ofrecer una experiencia confiable, rápida y profesional desde la primera compra.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card reveal">
+          <div class="feature-card__icon">01</div>
+          <h3>Selección premium</h3>
+          <p>Productos frescos y de calidad, revisados cada día para mantener una experiencia consistente.</p>
+        </article>
+        <article class="feature-card reveal">
+          <div class="feature-card__icon">02</div>
+          <h3>Entrega ágil</h3>
+          <p>Despachos en tiempos competitivos para que tu compra llegue cuando más la necesitas.</p>
+        </article>
+        <article class="feature-card reveal">
+          <div class="feature-card__icon">03</div>
+          <h3>Pago seguro</h3>
+          <p>Protegemos tus datos y brindamos opciones simples para pagar con total tranquilidad.</p>
+        </article>
+        <article class="feature-card reveal">
+          <div class="feature-card__icon">04</div>
+          <h3>Soporte cercano</h3>
+          <p>Atención rápida para dudas, cambios, devoluciones y recomendaciones durante todo el proceso.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="process-section">
+    <div class="container process-grid">
+      <div class="process-copy reveal">
+        <span class="eyebrow">Cómo lo hacemos</span>
+        <h2 class="section-title">Compra fácil, clara y segura</h2>
+        <p>La experiencia de compra combina rapidez, confianza y atención real para que cada pedido se sienta profesional.</p>
+        <ul class="check-list">
+          <li>Elige productos de tu supermercado favorito.</li>
+          <li>Confirma la entrega o retiro según tu horario.</li>
+          <li>Recibe notificaciones y seguimiento del pedido.</li>
+        </ul>
+      </div>
+      <div class="process-steps reveal">
+        <article class="step-card">
+          <span class="step-card__num">01</span>
+          <h3>Explora</h3>
+          <p>Busca por categoría, compara y elige lo que necesitas para la semana.</p>
+        </article>
+        <article class="step-card">
+          <span class="step-card__num">02</span>
+          <h3>Confirma</h3>
+          <p>Agrega tus productos y revisa el resumen antes de continuar al pago.</p>
+        </article>
+        <article class="step-card">
+          <span class="step-card__num">03</span>
+          <h3>Recibe</h3>
+          <p>Te informamos sobre tu entrega para que la experiencia sea transparente.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- OFFERS -->
+  <section class="offers" id="ofertas">
+    <div class="offers__header reveal">
+      <div>
+        <span class="eyebrow">Ofertas de la semana</span>
+        <h2 class="section-title">Precios que se renuevan pronto</h2>
+      </div>
+      <div class="countdown">
+        <div>
+          <div class="countdown__label">Nueva reposición en</div>
+          <div class="countdown__time" id="countdownTime">--:--:--</div>
+        </div>
+      </div>
+    </div>
+    <div class="offers-grid" id="offersGrid"></div>
+  </section>
+
+  <!-- CATALOG -->
+  <section class="catalog" id="catalogo">
+    <div class="catalog__controls">
+      <div class="filter-tabs" id="filterTabs"></div>
+      <div class="catalog-search">
+        <input type="text" id="catalogSearch" placeholder="Buscar en el catálogo…" autocomplete="off">
+      </div>
+    </div>
+    <div class="product-grid" id="productGrid"></div>
+    <p class="empty-state" id="emptyState" hidden>No encontramos productos con ese filtro. Prueba con otra palabra o categoría.</p>
+  </section>
+
+  <!-- TRUST -->
+  <section class="trust">
+    <div class="container">
+      <div class="trust-item reveal">
+        <span class="trust-item__ico">01</span>
+        <h4>Entrega en menos de 2 horas</h4>
+        <p>Despachamos desde el mercado más cercano a tu dirección.</p>
+      </div>
+      <div class="trust-item reveal">
+        <span class="trust-item__ico">02</span>
+        <h4>Frescura garantizada</h4>
+        <p>Si un producto no llega en buen estado, lo cambiamos sin costo.</p>
+      </div>
+      <div class="trust-item reveal">
+        <span class="trust-item__ico">03</span>
+        <h4>Pago 100% seguro</h4>
+        <p>Tarjeta, Yape, Plin o efectivo contra entrega.</p>
+      </div>
+      <div class="trust-item reveal">
+        <span class="trust-item__ico">04</span>
+        <h4>Cambios sin complicaciones</h4>
+        <p>Tienes 24 horas para reportar cualquier producto.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="testimonials">
+    <div class="container">
+      <div class="head reveal">
+        <span class="eyebrow">Clientes satisfechos</span>
+        <h2 class="section-title">La confianza se ve en cada compra</h2>
+        <p>La mejor prueba de una marca es la repetición y la recomendación de quienes la usan cada semana.</p>
+      </div>
+      <div class="testimonial-grid">
+        <article class="testimonial-card reveal">
+          <div class="testimonial-card__stars">★★★★★</div>
+          <p>“La atención y la frescura son excelentes. Es la primera vez que una compra online se siente tan organizada.”</p>
+          <div class="testimonial-card__person">
+            <strong>María C.</strong>
+            <span>Cliente frecuente</span>
+          </div>
+        </article>
+        <article class="testimonial-card reveal">
+          <div class="testimonial-card__stars">★★★★★</div>
+          <p>“Puedo comprar en minutos y recibir lo que necesito sin complicaciones. Se siente muy profesional.”</p>
+          <div class="testimonial-card__person">
+            <strong>José R.</strong>
+            <span>Hogar y familia</span>
+          </div>
+        </article>
+        <article class="testimonial-card reveal">
+          <div class="testimonial-card__stars">★★★★★</div>
+          <p>“La experiencia del carrito y la entrega es clara y confiable. Eso hace que vuelvan a comprar.”</p>
+          <div class="testimonial-card__person">
+            <strong>Lucía P.</strong>
+            <span>Cliente premium</span>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="help-section">
+    <div class="container help-grid">
+      <div class="help-card reveal">
+        <span class="eyebrow">Atención</span>
+        <h2 class="section-title">Estamos para ayudarte</h2>
+        <ul class="contact-list">
+          <li>+51 987 654 321</li>
+            <li>soporte@meilanys.pe</li>
+            <li>C. 8, Lima 15828</li>
+            <li>Lun a Dom · 7:00 a. m. a 10:00 p. m.</li>
+        </ul>
+      </div>
+      <div class="help-card reveal">
+        <span class="eyebrow">Preguntas frecuentes</span>
+        <div class="faq-item">
+          <strong>¿Cuánto tarda la entrega?</strong>
+          <p>Normalmente entregamos en 1 a 2 horas según la zona y la hora del pedido.</p>
+        </div>
+        <div class="faq-item">
+          <strong>¿Puedo cambiar mi pedido?</strong>
+          <p>Sí, durante los primeros minutos antes del despacho puedes ajustar el carrito.</p>
+        </div>
+        <div class="faq-item">
+          <strong>¿Es seguro pagar online?</strong>
+          <p>Todos los pagos están protegidos con una experiencia simple y segura para clientes.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="location-section">
+    <div class="container location-grid">
+      <div class="location-card reveal">
+        <span class="eyebrow">Nuestra ubicación</span>
+        <h2 class="section-title">Visítanos en nuestra tienda</h2>
+        <p>Minimarket Meilanys está ubicado en C. 8, Lima 15828, para que puedas recoger tus compras de forma rápida y segura, o coordinar delivery con total confianza.</p>
+        <ul class="location-details">
+          <li><strong>Dirección:</strong> C. 8, Lima 15828</li>
+          <li><strong>Coordenadas:</strong> -12.188634, -76.957334</li>
+          <li><strong>Horario:</strong> Lunes a domingo · 7:00 a. m. a 10:00 p. m.</li>
+        </ul>
+        <div class="location-actions">
+          <a class="btn btn--primary" href="https://maps.app.goo.gl/cCoFbP7yw3B4ZYodA" target="_blank" rel="noreferrer">Abrir en Google Maps</a>
+          <a class="btn btn--ghost" href="https://www.google.com/maps?q=-12.188634,-76.957334" target="_blank" rel="noreferrer">Cómo llegar</a>
+        </div>
+      </div>
+      <div class="location-map reveal">
+        <iframe
+          src="https://www.google.com/maps?q=-12.188634,-76.957334&z=16&output=embed"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+          allowfullscreen
+          title="Ubicación de Minimarket Meilanys">
+        </iframe>
+        <a class="location-map__badge" href="https://maps.app.goo.gl/cCoFbP7yw3B4ZYodA" target="_blank" rel="noreferrer">Abrir en Google Maps</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- NEWSLETTER -->
+  <section>
+    <div class="newsletter reveal">
+      <h2>Únete a la lista de compras</h2>
+      <p>Recibe las ofertas de la semana y las novedades de temporada antes que nadie.</p>
+      <form id="newsletterForm">
+        <input type="email" required placeholder="tu@correo.com" id="newsletterEmail">
+        <button type="submit" class="btn btn--primary">Suscribirme</button>
+      </form>
+      <p class="newsletter-success" id="newsletterSuccess" hidden>Listo, revisa tu correo para confirmar la suscripción.</p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="footer__grid">
+    <div class="footer__about">
+      <span class="logo" style="margin-bottom:14px;display:inline-flex;">
+        <span class="logo__mark">L</span>
+        <span class="logo__text" style="color:#fff;">Minimarket Meilanys</span>
+      </span>
+      <p>Mercado en línea con productos frescos, seleccionados a diario, sin electrodomésticos ni tecnología: solo lo que va a tu mesa.</p>
+      <div class="social-row">
+        <a href="#" aria-label="Facebook"><img src="https://cdn.simpleicons.org/facebook/ffffff" alt="Facebook" /></a>
+        <a href="#" aria-label="Instagram"><img src="https://cdn.simpleicons.org/instagram/ffffff" alt="Instagram" /></a>
+        <a href="#" aria-label="TikTok"><img src="https://cdn.simpleicons.org/tiktok/ffffff" alt="TikTok" /></a>
+        <a href="#" aria-label="WhatsApp"><img src="https://cdn.simpleicons.org/whatsapp/ffffff" alt="WhatsApp" /></a>
+      </div>
+    </div>
+    <div>
+      <h5>Categorías</h5>
+      <ul id="footerCategories"></ul>
+    </div>
+    <div>
+      <h5>Ayuda</h5>
+      <ul>
+        <li><a href="#">Preguntas frecuentes</a></li>
+        <li><a href="#">Zonas de entrega</a></li>
+        <li><a href="#">Cambios y devoluciones</a></li>
+        <li><a href="#">Trabaja con nosotros</a></li>
+        <li><a href="#">Libro de reclamaciones</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Nosotros</h5>
+      <ul>
+        <li><a href="#">Quiénes somos</a></li>
+        <li><a href="#">Nuestros mercados aliados</a></li>
+        <li><a href="#">Sostenibilidad</a></li>
+        <li><a href="#">Contacto</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer__bottom">
+    <span>© 2026 Minimarket Meilanys. Todos los derechos reservados.</span>
+    <div class="payment-icons" aria-label="Métodos de pago">
+      <span>Tarjeta</span><span>Yape</span><span>Efectivo</span>
+    </div>
+  </div>
+</footer>
+
+<!-- CART DRAWER -->
+<div class="overlay" id="overlay"></div>
+<aside class="cart-drawer" id="cartDrawer" aria-label="Carrito de compras">
+  <div class="cart-drawer__header">
+    <h3>Tu carrito</h3>
+    <button id="cartCloseBtn" aria-label="Cerrar carrito">✕</button>
+  </div>
+  <div class="cart-items" id="cartItems"></div>
+  <div class="cart-drawer__footer" id="cartFooter">
+    <div class="cart-subtotal"><span>Subtotal</span><strong id="cartSubtotal">S/ 0.00</strong></div>
+    <button class="btn btn--primary btn--block" id="checkoutBtn">Ir a pagar</button>
+  </div>
+</aside>
+
+<!-- DELIVERY MODAL -->
+<div class="modal" id="deliveryModal">
+  <div class="modal__box">
+    <button class="modal__close" id="deliveryClose" aria-label="Cerrar">✕</button>
+    <h3>¿Cómo quieres recibir tu pedido?</h3>
+    <label class="modal__option">
+      <input type="radio" name="delivery" value="domicilio" checked>
+      Delivery a domicilio
+    </label>
+    <label class="modal__option">
+      <input type="radio" name="delivery" value="tienda">
+      Recojo en tienda
+    </label>
+    <button class="btn btn--primary btn--block" id="deliveryConfirm" style="margin-top:8px;">Confirmar</button>
+  </div>
+</div>
+
+<!-- AUTH MODAL -->
+<div class="modal" id="authModal" aria-hidden="true">
+  <div class="modal__box auth-modal__box">
+    <button class="modal__close" id="authClose" aria-label="Cerrar inicio de sesión">✕</button>
+    <div class="auth-modal__header">
+      <span class="eyebrow">Cuenta</span>
+      <h3 id="authTitle">Iniciar sesión</h3>
+    </div>
+
+    <form id="authForm" class="auth-form">
+      <label class="auth-field auth-field--name" style="display:none">
+        <span>Nombre completo</span>
+        <input id="authName" type="text" placeholder="Tu nombre" autocomplete="name">
+      </label>
+
+      <label class="auth-field auth-field--email" style="display:none">
+        <span>Correo electrónico</span>
+        <input id="authEmail" type="email" placeholder="tu@correo.com" autocomplete="email">
+      </label>
+
+      <label class="auth-field">
+        <span>Usuario o email</span>
+        <input id="authIdentifier" type="text" placeholder="admin o admin@lacanasta.com" autocomplete="username" required>
+      </label>
+
+      <label class="auth-field">
+        <span>Contraseña</span>
+        <input id="authPassword" type="password" placeholder="Tu contraseña" autocomplete="current-password" required>
+      </label>
+
+      <button type="submit" class="btn btn--primary btn--block">Iniciar sesión</button>
+
+      <div class="auth-demo">
+        <strong>Credenciales de prueba:</strong>
+        <span>admin / admin123</span>
+        <span>maria / maria2025</span>
+      </div>
+
+      <button type="button" class="auth-toggle" id="authToggleMode">Crear una cuenta</button>
+    </form>
+  </div>
+</div>
+
+<!-- ACCOUNT MODAL -->
+<div class="modal" id="accountModal" aria-hidden="true">
+  <div class="modal__box account-modal__box">
+    <button class="modal__close" id="accountClose" aria-label="Cerrar cuenta">✕</button>
+    <div class="auth-modal__header">
+      <span class="eyebrow">Cuenta</span>
+      <h3>Mi cuenta</h3>
+    </div>
+
+    <div class="account-menu">
+      <button class="account-menu__item" data-account-panel="profile">Datos personales</button>
+      <button class="account-menu__item" data-account-panel="addresses">Direcciones</button>
+      <button class="account-menu__item" data-account-panel="payments">Medios de pago</button>
+      <button class="account-menu__item" data-account-panel="refunds">Datos para reembolso</button>
+      <button class="account-menu__item" data-account-panel="security">Configurar mi cuenta</button>
+      <button class="account-menu__item account-menu__item--danger" id="accountLogoutBtn">Cerrar sesión</button>
+    </div>
+
+    <div class="account-panel" id="accountPanel"></div>
+  </div>
+</div>
+
+<!-- HISTORY MODAL -->
+<div class="modal" id="historyModal" aria-hidden="true">
+  <div class="modal__box history-modal__box">
+    <button class="modal__close" id="historyClose" aria-label="Cerrar historial">✕</button>
+    <div class="auth-modal__header">
+      <span class="eyebrow">Compras</span>
+      <h3>Mi historial</h3>
+    </div>
+    <div class="history-list" id="historyList"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+  <script type="module" src="./recursos/scripts/main.js"></script>
+</body>
+</html>
