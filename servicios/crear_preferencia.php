@@ -5,31 +5,14 @@ Ruta: c:\xampp\htdocs\Empresa\Paginaweb_v1\crear_preferencia.php
 Proyecto: Empresa / Paginaweb_v1
 Nombre del proyecto: Minimarket Meilanys
 Fecha: 2026-08-24
-Autor: Yo, como responsable del desarrollo, creo y mantengo este archivo.
-Propósito: recibir el carrito del frontend y generar la preferencia de pago para Mercado Pago.
-Tecnologías: PHP, cURL, JSON, integración con Mercado Pago.
-Dependencias: mercado-pago-config.php, index.html, script.js.
-Estado: activo y listo para crear pagos.
 */
-// ================================================================
-// crear_preferencia.php
-// ================================================================
-// Este archivo recibe la información del carrito desde el frontend y
-// crea una preferencia de pago en Mercado Pago usando el Access Token.
-//
-// Importante:
-// - La Public Key va en el frontend.
-// - El Access Token va SOLO aquí, en el servidor.
-// - El navegador nunca debe ver el Access Token.
-// - Mercado Pago no acepta localhost como back_url. Requiere una URL pública HTTPS.
-// ================================================================
 
 session_start();
 require __DIR__ . '/../configuracion/mercado-pago-config.php';
 
 header('Content-Type: application/json');
 
-if (empty($_SESSION['user_id'])) {
+if (empty($_SESSION['user_id']) && empty($_SESSION['usuario'])) {
     http_response_code(401);
     echo json_encode([
         'error' => 'Debes iniciar sesión antes de pagar.'
@@ -41,8 +24,7 @@ if (empty($_SESSION['user_id'])) {
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode([
-        'error' => 'Este endpoint solo acepta peticiones POST.',
-        'hint' => 'Abre la página principal y haz clic en pagar. No abras este archivo directamente en el navegador.'
+        'error' => 'Este endpoint solo acepta peticiones POST.'
     ]);
     exit;
 }
@@ -70,21 +52,7 @@ if (empty($items)) {
     exit;
 }
 
-// 4) Validamos que la URL de retorno sea pública y no localhost
-$baseUrl = MP_BASE_URL;
-if (stripos($baseUrl, 'localhost') !== false || stripos($baseUrl, '127.0.0.1') !== false || !preg_match('#^https://#i', $baseUrl)) {
-    http_response_code(400);
-    echo json_encode([
-        'error' => 'Mercado Pago requiere una URL pública HTTPS en back_urls.',
-        'hint' => 'Usa ngrok o un dominio real. Por ejemplo: https://tu-nombre.ngrok-free.app/Empresa/Paginaweb_v1',
-        'config' => [
-            'MP_BASE_URL' => $baseUrl
-        ]
-    ]);
-    exit;
-}
-
-// 5) Preparamos el payload que Mercado Pago espera
+// 4) Preparamos el payload que Mercado Pago espera
 $payload = [
     'items' => $items,
     'payer' => [
@@ -98,7 +66,7 @@ $payload = [
     'auto_return' => 'approved'
 ];
 
-// 6) Llamamos a la API de Mercado Pago
+// 5) Llamamos a la API de Mercado Pago
 $ch = curl_init('https://api.mercadopago.com/checkout/preferences');
 
 curl_setopt_array($ch, [
@@ -115,12 +83,17 @@ $response = curl_exec($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);
 
+// 6) Manejo de errores REALES de Mercado Pago
 if ($httpCode < 200 || $httpCode >= 300) {
     http_response_code(400);
+    $errorData = json_decode($response, true);
+    
+    // Extraemos el mensaje real de Mercado Pago
+    $mensajeReal = isset($errorData['message']) ? $errorData['message'] : 'Error desconocido';
+    
     echo json_encode([
-        'error' => 'Mercado Pago rechazó la preferencia.',
-        'detalle' => json_decode($response, true),
-        'hint' => 'Revisa que la URL de retorno sea pública y HTTPS. Si estás usando localhost, debes usar ngrok.'
+        'error' => 'Error de Mercado Pago: ' . $mensajeReal,
+        'detalle_completo' => $errorData
     ]);
     exit;
 }
@@ -136,7 +109,7 @@ if (empty($data['init_point'])) {
     exit;
 }
 
-// 7) Enviamos la URL de pago al frontend y marcamos la sesión para validar el flujo del pago
+// 7) Enviamos la URL de pago al frontend
 $_SESSION['checkout_started'] = true;
 
 echo json_encode([
