@@ -2,19 +2,19 @@
 $databaseUrl = getenv('DATABASE_URL') ?: getenv('SUPABASE_DB_URL') ?: getenv('POSTGRES_URL');
 
 $options = [
-    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    PDO::ATTR_EMULATE_PREPARES => false
+    PDO::ATTR_EMULATE_PREPARES   => false
 ];
 
 try {
     if ($databaseUrl) {
         $parsed = parse_url($databaseUrl);
-        $host = $parsed['host'] ?? 'localhost';
-        $port = $parsed['port'] ?? 5432;
+        $host   = $parsed['host'] ?? 'localhost';
+        $port   = $parsed['port'] ?? 5432;
         $dbname = ltrim($parsed['path'] ?? '', '/');
-        $user = $parsed['user'] ?? 'postgres';
-        $pass = $parsed['pass'] ?? '';
+        $user   = $parsed['user'] ?? 'postgres';
+        $pass   = $parsed['pass'] ?? '';
 
         $dsn = sprintf(
             'pgsql:host=%s;port=%s;dbname=%s;sslmode=require',
@@ -25,7 +25,7 @@ try {
 
         $pdo = new PDO($dsn, $user, $pass, $options);
     } else {
-        $host = getenv('DB_HOST') ?: 'localhost';
+        $host   = getenv('DB_HOST') ?: 'localhost';
         $dbName = getenv('DB_NAME') ?: 'minimarket_meilanys';
         $dbUser = getenv('DB_USER') ?: 'root';
         $dbPass = getenv('DB_PASSWORD') ?: '';
@@ -34,10 +34,12 @@ try {
         $pdo = new PDO($dsn, $dbUser, $dbPass, $options);
     }
 } catch (PDOException $e) {
+    // Registra el detalle técnico en los logs de Render sin exponerlo al usuario
+    error_log("Error crítico de BD: " . $e->getMessage());
+
     http_response_code(500);
     echo json_encode([
-        'error' => 'No se pudo conectar a la base de datos.',
-        'detalle' => $e->getMessage()
+        'error' => 'No se pudo conectar a la base de datos. Por favor, intenta de nuevo más tarde.'
     ]);
     exit;
 }
