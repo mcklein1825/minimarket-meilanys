@@ -23,6 +23,10 @@ export default class StoreController {
     window.__storeController = this;
     this.model.ensureUsers();
     await this.model.loadSession();
+    
+    // Carga las categorías desde Supabase antes de renderizar la UI
+    await this.model.loadCategories();
+    
     this.bindGlobalEvents();
     this.updateUI();
     this.renderEverything();
@@ -88,7 +92,6 @@ export default class StoreController {
   }
 
   async handleCheckout() {
-    // 1) Validamos que el usuario haya iniciado sesión
     const user = this.model.getCurrentUser();
     if (!user) {
       this.view.showToast('Debes iniciar sesión para pagar');
@@ -96,15 +99,12 @@ export default class StoreController {
       return;
     }
 
-    // 2) Validamos que el carrito tenga productos
     const ids = Object.keys(this.model.cart);
     if (ids.length === 0) {
       this.view.showToast('Tu carrito está vacío todavía');
       return;
     }
 
-    // 3) Preparamos los productos para enviarlos a Mercado Pago
-    // En el Back End se usa el Access Token; en Front End solo se usa la Public Key si se requiere un SDK.
     const items = ids.map((id) => {
       const product = this.model.products.find((pr) => pr.id === Number(id));
       const qty = this.model.cart[id];
@@ -117,7 +117,6 @@ export default class StoreController {
     });
 
     try {
-      // 4) Llamamos al backend para crear la preferencia de pago
       const response = await fetch('../servicios/crear_preferencia.php', {
         method: 'POST',
         headers: {
@@ -128,16 +127,13 @@ export default class StoreController {
 
       const data = await response.json();
 
-      // 5) Si Mercado Pago responde con init_point, redirigimos al checkout
       if (!response.ok || !data.init_point) {
         const message = data?.hint || data?.error || 'No se pudo crear la preferencia';
         throw new Error(message);
       }
 
-      // 6) Aquí se redirige al usuario al checkout de Mercado Pago
       window.location.href = data.init_point;
     } catch (error) {
-      // 7) Si algo falla, avisamos al usuario y dejamos la compra sin avanzar
       console.error('Error con Mercado Pago:', error);
       this.view.showToast(error.message || 'No se pudo iniciar el pago. Intenta nuevamente.');
     }
@@ -166,7 +162,6 @@ export default class StoreController {
       return;
     }
 
-    // login
     const user = await this.model.loginUser(identifier, password);
 
     if (!user) {
@@ -191,7 +186,6 @@ export default class StoreController {
     submitBtn.textContent = toRegister ? 'Crear cuenta' : 'Iniciar sesión';
     toggleBtn.textContent = toRegister ? 'Ya tengo cuenta' : 'Crear una cuenta';
 
-    // Show/hide name and email fields
     if (this.view.elements.authName) this.view.elements.authName.closest('.auth-field')?.style && (this.view.elements.authName.closest('.auth-field').style.display = toRegister ? '' : 'none');
     if (this.view.elements.authEmail) this.view.elements.authEmail.closest('.auth-field')?.style && (this.view.elements.authEmail.closest('.auth-field').style.display = toRegister ? '' : 'none');
 
@@ -507,6 +501,13 @@ export default class StoreController {
       this.view.closeAuthModal();
       this.view.closeHistoryModal();
       this.view.closeAccountModal();
+      try {
+        this.view.elements.header.classList.remove('menu-open');
+        catDropdown.classList.remove('open');
+        mobileMenuBtn.setAttribute('aria-expanded', 'false');
+      } catch (e) {
+        // Ignorar silenciosamente si falta algún elemento
+      }
     });
 
     cartOpenBtn.addEventListener('click', this.view.openCart.bind(this.view));
@@ -559,7 +560,9 @@ export default class StoreController {
     });
 
     mobileMenuBtn.addEventListener('click', () => {
-      catDropdown.classList.toggle('open');
+      const open = this.view.elements.header.classList.toggle('menu-open');
+      catDropdown.classList.toggle('open', open);
+      mobileMenuBtn.setAttribute('aria-expanded', open);
     });
 
     const io = new IntersectionObserver((entries) => {
