@@ -17,23 +17,32 @@ export default class StoreController {
     this.toastTimer = null;
   }
 
-  async init() {
+ async init() {
     window.__storeController = this;
     
-    // Se ejecutan solo si están definidos en storeModel.js
-    if (typeof this.model.loadSession === 'function') {
-      await this.model.loadSession();
+    // Intenta cargar la sesión; si falla, no detiene la ejecución
+    try {
+      if (typeof this.model?.loadSession === 'function') {
+        await this.model.loadSession();
+      }
+    } catch (error) {
+      console.warn('Advertencia en loadSession:', error);
     }
-    
-    if (typeof this.model.loadCategories === 'function') {
-      await this.model.loadCategories();
+
+    // Intenta cargar categorías; si falla, no detiene la ejecución
+    try {
+      if (typeof this.model?.loadCategories === 'function') {
+        await this.model.loadCategories();
+      }
+    } catch (error) {
+      console.warn('Advertencia en loadCategories:', error);
     }
-    
+
+    // Activa event listeners y vista pase lo que pase
     this.bindGlobalEvents();
     this.updateUI();
     this.renderEverything();
   }
-
   getCurrentUserSafe() {
     return typeof this.model.getCurrentUser === 'function' ? this.model.getCurrentUser() : null;
   }
