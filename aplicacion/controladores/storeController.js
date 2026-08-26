@@ -20,63 +20,92 @@ export default class StoreController {
   async init() {
     window.__storeController = this;
     
-    // Carga la sesión activa del usuario
-    await this.model.loadSession();
+    // Se ejecutan solo si están definidos en storeModel.js
+    if (typeof this.model.loadSession === 'function') {
+      await this.model.loadSession();
+    }
     
-    // Carga las categorías desde Supabase antes de renderizar la UI
-    await this.model.loadCategories();
+    if (typeof this.model.loadCategories === 'function') {
+      await this.model.loadCategories();
+    }
     
     this.bindGlobalEvents();
     this.updateUI();
     this.renderEverything();
   }
 
+  getCurrentUserSafe() {
+    return typeof this.model.getCurrentUser === 'function' ? this.model.getCurrentUser() : null;
+  }
+
   updateUI() {
-    const currentUser = this.model.getCurrentUser();
+    const currentUser = this.getCurrentUserSafe();
     this.view.updateAccountButton(currentUser);
     this.view.syncCheckoutButton(currentUser);
   }
 
   renderEverything() {
-    const currentUser = this.model.getCurrentUser();
+    const currentUser = this.getCurrentUserSafe();
+    const categories = this.model.categories || [];
+    const products = this.model.products || [];
+    const cart = this.model.cart || {};
+    const fmt = typeof this.model.fmt === 'function' ? this.model.fmt.bind(this.model) : (v) => v;
+    const history = typeof this.model.loadOrderHistory === 'function' ? this.model.loadOrderHistory(currentUser) : [];
+
     this.view.renderTicker();
-    this.view.renderCategoryDropdown(this.model.categories);
-    this.view.renderCategoryGrid(this.model.categories, this.currentFilter);
-    this.view.renderFilterTabs(this.model.categories, this.currentFilter);
-    this.view.renderOffers(this.model.products, this.model.fmt.bind(this.model));
-    this.view.renderProducts(this.model.products, this.currentFilter, this.searchTerm, this.model.fmt.bind(this.model));
-    this.view.renderCart(this.model.cart, this.model.products, this.model.fmt.bind(this.model));
+    this.view.renderCategoryDropdown(categories);
+    this.view.renderCategoryGrid(categories, this.currentFilter);
+    this.view.renderFilterTabs(categories, this.currentFilter);
+    this.view.renderOffers(products, fmt);
+    this.view.renderProducts(products, this.currentFilter, this.searchTerm, fmt);
+    this.view.renderCart(cart, products, fmt);
     this.view.syncCheckoutButton(currentUser);
-    this.view.renderFooterCategories(this.model.categories);
-    this.view.renderHistoryModal(this.model.loadOrderHistory(currentUser), this.model.fmt.bind(this.model));
+    this.view.renderFooterCategories(categories);
+    this.view.renderHistoryModal(history, fmt);
   }
 
   setFilter(cat) {
     this.currentFilter = cat;
-    this.view.renderCategoryGrid(this.model.categories, this.currentFilter);
-    this.view.renderFilterTabs(this.model.categories, this.currentFilter);
-    this.view.renderProducts(this.model.products, this.currentFilter, this.searchTerm, this.model.fmt.bind(this.model));
+    const categories = this.model.categories || [];
+    const products = this.model.products || [];
+    const fmt = typeof this.model.fmt === 'function' ? this.model.fmt.bind(this.model) : (v) => v;
+
+    this.view.renderCategoryGrid(categories, this.currentFilter);
+    this.view.renderFilterTabs(categories, this.currentFilter);
+    this.view.renderProducts(products, this.currentFilter, this.searchTerm, fmt);
   }
 
   setSearch(term) {
     this.searchTerm = term.trim();
-    this.view.renderProducts(this.model.products, this.currentFilter, this.searchTerm, this.model.fmt.bind(this.model));
+    const products = this.model.products || [];
+    const fmt = typeof this.model.fmt === 'function' ? this.model.fmt.bind(this.model) : (v) => v;
+    this.view.renderProducts(products, this.currentFilter, this.searchTerm, fmt);
   }
 
   addToCart(id) {
+    if (!this.model.cart) this.model.cart = {};
+    const products = this.model.products || [];
+    const fmt = typeof this.model.fmt === 'function' ? this.model.fmt.bind(this.model) : (v) => v;
+
     this.model.cart[id] = (this.model.cart[id] || 0) + 1;
-    this.view.renderCart(this.model.cart, this.model.products, this.model.fmt.bind(this.model));
+    this.view.renderCart(this.model.cart, products, fmt);
     this.view.showToast('Producto agregado al carrito');
   }
 
   changeQty(id, delta) {
-    if (!this.model.cart[id]) return;
+    if (!this.model.cart || !this.model.cart[id]) return;
+    const products = this.model.products || [];
+    const fmt = typeof this.model.fmt === 'function' ? this.model.fmt.bind(this.model) : (v) => v;
+
     this.model.cart[id] += delta;
     if (this.model.cart[id] <= 0) delete this.model.cart[id];
-    this.view.renderCart(this.model.cart, this.model.products, this.model.fmt.bind(this.model));
+    this.view.renderCart(this.model.cart, products, fmt);
   }
 
   removeItem(id) {
+    if (!this.model.cart) return;
+    const products = this.model.products || [];
+    const fmt = typeof this.model.fmt === 'function' ? this.model.fmt.bind(this.model) : (v) => v;
     const cartItemsEl = this.view.elements.cartItems;
     const cartItem = cartItemsEl ? cartItemsEl.querySelector(`[data-cart-id="${id}"]`) : null;
     
@@ -84,33 +113,36 @@ export default class StoreController {
       cartItem.classList.add('removing');
       setTimeout(() => {
         delete this.model.cart[id];
-        this.view.renderCart(this.model.cart, this.model.products, this.model.fmt.bind(this.model));
+        this.view.renderCart(this.model.cart, products, fmt);
       }, 260);
       return;
     }
     delete this.model.cart[id];
-    this.view.renderCart(this.model.cart, this.model.products, this.model.fmt.bind(this.model));
+    this.view.renderCart(this.model.cart, products, fmt);
   }
 
   async handleCheckout() {
-    const user = this.model.getCurrentUser();
+    const user = this.getCurrentUserSafe();
     if (!user) {
       this.view.showToast('Debes iniciar sesión para pagar');
       this.view.openAuthModal();
       return;
     }
 
-    const ids = Object.keys(this.model.cart);
+    const cart = this.model.cart || {};
+    const products = this.model.products || [];
+    const ids = Object.keys(cart);
+
     if (ids.length === 0) {
       this.view.showToast('Tu carrito está vacío todavía');
       return;
     }
 
     const items = ids.map((id) => {
-      const product = this.model.products.find((pr) => pr.id === Number(id));
+      const product = products.find((pr) => pr.id === Number(id));
       if (!product) return null;
       
-      const qty = this.model.cart[id];
+      const qty = cart[id];
       return {
         title: product.nombre,
         quantity: qty,
@@ -156,6 +188,12 @@ export default class StoreController {
     if (isRegister) {
       const nombre = (this.view.elements.authName?.value || '').trim();
       const email = (this.view.elements.authEmail?.value || '').trim();
+      
+      if (typeof this.model.registerUser !== 'function') {
+        this.view.showToast('La función de registro no está disponible');
+        return;
+      }
+
       const user = await this.model.registerUser({ nombre, usernameOrEmail: identifier, email, password });
 
       if (!user) {
@@ -167,6 +205,11 @@ export default class StoreController {
       this.view.elements.authForm?.reset();
       this.updateUI();
       this.view.showToast(`Cuenta creada. Bienvenido ${user.nombre}`);
+      return;
+    }
+
+    if (typeof this.model.loginUser !== 'function') {
+      this.view.showToast('La función de inicio de sesión no está disponible');
       return;
     }
 
@@ -210,43 +253,65 @@ export default class StoreController {
   }
 
   async handleLogout() {
-    await this.model.logoutUser();
-    this.model.clearCart();
-    this.view.renderCart(this.model.cart, this.model.products, this.model.fmt.bind(this.model));
+    if (typeof this.model.logoutUser === 'function') {
+      await this.model.logoutUser();
+    }
+    if (typeof this.model.clearCart === 'function') {
+      this.model.clearCart();
+    } else {
+      this.model.cart = {};
+    }
+
+    const products = this.model.products || [];
+    const fmt = typeof this.model.fmt === 'function' ? this.model.fmt.bind(this.model) : (v) => v;
+
+    this.view.renderCart(this.model.cart, products, fmt);
     this.updateUI();
     this.view.showToast('Sesión cerrada correctamente');
   }
 
   openHistoryIfLoggedIn() {
-    const user = this.model.getCurrentUser();
+    const user = this.getCurrentUserSafe();
     if (!user) {
       this.view.openAuthModal();
       this.view.showToast('Inicia sesión para ver tu historial');
       return;
     }
-    this.view.renderHistoryModal(this.model.loadOrderHistory(user), this.model.fmt.bind(this.model));
+
+    const fmt = typeof this.model.fmt === 'function' ? this.model.fmt.bind(this.model) : (v) => v;
+    const history = typeof this.model.loadOrderHistory === 'function' ? this.model.loadOrderHistory(user) : [];
+
+    this.view.renderHistoryModal(history, fmt);
     this.view.openHistoryModal();
   }
 
   handleAccountOpen() {
-    const user = this.model.getCurrentUser();
+    const user = this.getCurrentUserSafe();
     if (!user) {
       this.view.openAuthModal();
       return;
     }
+    const accountData = typeof this.model.getAccountDataForCurrentUser === 'function' ? this.model.getAccountDataForCurrentUser() : {};
     this.view.openAccountModal();
-    this.view.renderAccountPanel(user, 'profile', this.model.getAccountDataForCurrentUser());
+    this.view.renderAccountPanel(user, 'profile', accountData);
   }
 
   handleAccountMenu(panel) {
-    const user = this.model.getCurrentUser();
-    this.view.renderAccountPanel(user, panel, this.model.getAccountDataForCurrentUser());
+    const user = this.getCurrentUserSafe();
+    const accountData = typeof this.model.getAccountDataForCurrentUser === 'function' ? this.model.getAccountDataForCurrentUser() : {};
+    this.view.renderAccountPanel(user, panel, accountData);
   }
 
   saveAccountForm(event) {
     const form = event.target.closest('form[data-form]');
     if (!form) return;
     event.preventDefault();
+
+    if (typeof this.model.getAccountDataForCurrentUser !== 'function') {
+      this.view.showToast('No se pueden guardar cambios de cuenta en este momento');
+      return;
+    }
+
     const data = this.model.getAccountDataForCurrentUser();
     const formType = form.dataset.form;
 
@@ -259,8 +324,8 @@ export default class StoreController {
         phone: formData.get('phone')?.toString().trim() || '',
         dni: formData.get('dni')?.toString().trim() || ''
       };
-      this.model.saveCurrentUserAccountData(data);
-      this.model.updateUserSessionFromProfile(data.profile);
+      if (typeof this.model.saveCurrentUserAccountData === 'function') this.model.saveCurrentUserAccountData(data);
+      if (typeof this.model.updateUserSessionFromProfile === 'function') this.model.updateUserSessionFromProfile(data.profile);
       this.updateUI();
       this.view.showToast('Datos personales guardados');
       return;
@@ -280,7 +345,7 @@ export default class StoreController {
         };
       });
       data.addresses = addresses.filter((item) => item.street || item.district || item.city || item.reference || item.alias);
-      this.model.saveCurrentUserAccountData(data);
+      if (typeof this.model.saveCurrentUserAccountData === 'function') this.model.saveCurrentUserAccountData(data);
       this.view.showToast('Direcciones guardadas');
       return;
     }
@@ -298,7 +363,7 @@ export default class StoreController {
         };
       });
       data.payments = payments.filter((item) => item.number || item.type || item.alias || item.holder);
-      this.model.saveCurrentUserAccountData(data);
+      if (typeof this.model.saveCurrentUserAccountData === 'function') this.model.saveCurrentUserAccountData(data);
       this.view.showToast('Medios de pago guardados');
       return;
     }
@@ -311,7 +376,7 @@ export default class StoreController {
         cci: formData.get('cci')?.toString().trim() || '',
         holder: formData.get('holder')?.toString().trim() || ''
       };
-      this.model.saveCurrentUserAccountData(data);
+      if (typeof this.model.saveCurrentUserAccountData === 'function') this.model.saveCurrentUserAccountData(data);
       this.view.showToast('Datos de reembolso guardados');
       return;
     }
@@ -322,12 +387,11 @@ export default class StoreController {
       const newPassword = formData.get('newPassword')?.toString() || '';
       const confirmPassword = formData.get('confirmPassword')?.toString() || '';
       
-      // Validación segura: Evita error si la función local ya no existe
       const users = typeof this.model.ensureUsers === 'function' ? this.model.ensureUsers() : [];
-      const currentUser = this.model.getCurrentUser();
+      const currentUser = this.getCurrentUserSafe();
       
-      if (!users || users.length === 0) {
-        this.view.showToast('Gestión de contraseñas manejada por el nuevo servidor.');
+      if (!users || users.length === 0 || !currentUser) {
+        this.view.showToast('Gestión de contraseñas manejada por el servidor.');
         return;
       }
 
@@ -343,7 +407,7 @@ export default class StoreController {
       }
 
       userRecord.password = newPassword;
-      localStorage.setItem(this.model.STORAGE_USERS, JSON.stringify(users));
+      localStorage.setItem(this.model.STORAGE_USERS || 'store_users', JSON.stringify(users));
       this.view.showToast('Contraseña actualizada');
       form.reset();
     }
@@ -351,20 +415,21 @@ export default class StoreController {
 
   handleAccountAction(event) {
     const actionButton = event.target.closest('[data-action]');
-    if (!actionButton) return;
+    if (!actionButton || typeof this.model.getAccountDataForCurrentUser !== 'function') return;
 
     if (actionButton.dataset.action === 'add-address') {
       const data = this.model.getAccountDataForCurrentUser();
       data.addresses.push({ alias: 'Nueva dirección', street: '', district: '', city: '', reference: '' });
-      this.model.saveCurrentUserAccountData(data);
+      if (typeof this.model.saveCurrentUserAccountData === 'function') this.model.saveCurrentUserAccountData(data);
       this.handleAccountMenu('addresses');
       return;
     }
 
     if (actionButton.dataset.action === 'add-payment') {
+      const user = this.getCurrentUserSafe();
       const data = this.model.getAccountDataForCurrentUser();
-      data.payments.push({ alias: 'Nuevo medio', type: '', number: '', holder: this.model.getCurrentUser().nombre });
-      this.model.saveCurrentUserAccountData(data);
+      data.payments.push({ alias: 'Nuevo medio', type: '', number: '', holder: user?.nombre || '' });
+      if (typeof this.model.saveCurrentUserAccountData === 'function') this.model.saveCurrentUserAccountData(data);
       this.handleAccountMenu('payments');
       return;
     }
@@ -372,24 +437,32 @@ export default class StoreController {
     if (actionButton.dataset.action === 'delete-account') {
       const shouldDelete = window.confirm('¿Seguro que quieres eliminar tu cuenta? Esta acción no se puede deshacer.');
       if (!shouldDelete) return;
-      const currentUser = this.model.getCurrentUser();
+      const currentUser = this.getCurrentUserSafe();
       
-      // Validación segura: Evita error si la función local ya no existe
-      if (typeof this.model.ensureUsers === 'function') {
+      if (currentUser && typeof this.model.ensureUsers === 'function') {
         const users = this.model.ensureUsers().filter((u) => u.username !== currentUser.username);
-        localStorage.setItem(this.model.STORAGE_USERS, JSON.stringify(users));
+        localStorage.setItem(this.model.STORAGE_USERS || 'store_users', JSON.stringify(users));
       }
       
-      const map = this.model.getAccountDataMap();
-      delete map[currentUser.username];
-      this.model.saveAccountDataMap(map);
-      localStorage.removeItem(this.model.STORAGE_SESSION);
-      this.model.clearCart();
-      this.view.renderCart(this.model.cart, this.model.products, this.model.fmt.bind(this.model));
-      this.view.syncCheckoutButton(this.model.getCurrentUser());
+      if (currentUser && typeof this.model.getAccountDataMap === 'function') {
+        const map = this.model.getAccountDataMap();
+        delete map[currentUser.username];
+        if (typeof this.model.saveAccountDataMap === 'function') this.model.saveAccountDataMap(map);
+      }
+      
+      if (this.model.STORAGE_SESSION) localStorage.removeItem(this.model.STORAGE_SESSION);
+      
+      if (typeof this.model.clearCart === 'function') this.model.clearCart();
+      else this.model.cart = {};
+
+      const products = this.model.products || [];
+      const fmt = typeof this.model.fmt === 'function' ? this.model.fmt.bind(this.model) : (v) => v;
+
+      this.view.renderCart(this.model.cart, products, fmt);
+      this.view.syncCheckoutButton(this.getCurrentUserSafe());
       this.view.closeAccountModal();
       this.view.showToast('Cuenta eliminada');
-      this.view.updateAccountButton(this.model.getCurrentUser());
+      this.view.updateAccountButton(this.getCurrentUserSafe());
       return;
     }
 
@@ -398,17 +471,18 @@ export default class StoreController {
       const data = this.model.getAccountDataForCurrentUser();
       data.addresses.splice(index, 1);
       if (!data.addresses.length) data.addresses = [{ alias: 'Casa', street: '', district: '', city: '', reference: '' }];
-      this.model.saveCurrentUserAccountData(data);
+      if (typeof this.model.saveCurrentUserAccountData === 'function') this.model.saveCurrentUserAccountData(data);
       this.handleAccountMenu('addresses');
       return;
     }
 
     if (actionButton.dataset.action === 'delete-payment') {
       const index = Number(actionButton.dataset.index);
+      const user = this.getCurrentUserSafe();
       const data = this.model.getAccountDataForCurrentUser();
       data.payments.splice(index, 1);
-      if (!data.payments.length) data.payments = [{ alias: 'Tarjeta principal', type: 'Visa', number: '', holder: this.model.getCurrentUser().nombre }];
-      this.model.saveCurrentUserAccountData(data);
+      if (!data.payments.length) data.payments = [{ alias: 'Tarjeta principal', type: 'Visa', number: '', holder: user?.nombre || '' }];
+      if (typeof this.model.saveCurrentUserAccountData === 'function') this.model.saveCurrentUserAccountData(data);
       this.handleAccountMenu('payments');
     }
   }
