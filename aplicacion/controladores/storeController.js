@@ -7,8 +7,6 @@ Fecha: 2026-08-24
 Autor: Yo, como responsable del desarrollo, creo y mantengo este archivo.
 Propósito: coordinar la interacción del usuario con el modelo y la vista para control de flujo, autenticación y pagos.
 Tecnologías: JavaScript ES6, fetch, eventos del navegador, asincronía.
-Dependencias: StoreModel, StoreView, crear_preferencia.php.
-Estado: activo y gestionando la lógica principal.
 */
 export default class StoreController {
   constructor(model, view) {
@@ -78,7 +76,10 @@ export default class StoreController {
   }
 
   removeItem(id) {
-    const cartItem = this.view.elements.cartItems.querySelector(`[data-cart-id="${id}"]`);
+    // Verificamos si cartItems existe antes de usar querySelector
+    const cartItemsEl = this.view.elements.cartItems;
+    const cartItem = cartItemsEl ? cartItemsEl.querySelector(`[data-cart-id="${id}"]`) : null;
+    
     if (cartItem) {
       cartItem.classList.add('removing');
       setTimeout(() => {
@@ -105,16 +106,19 @@ export default class StoreController {
       return;
     }
 
+    // Filtrado de seguridad: evitamos items nulos si el producto ya no existe en el modelo
     const items = ids.map((id) => {
       const product = this.model.products.find((pr) => pr.id === Number(id));
+      if (!product) return null;
+      
       const qty = this.model.cart[id];
       return {
         title: product.nombre,
         quantity: qty,
         unit_price: Number(product.precio),
-        currency_id: 'ARS'
+        currency_id: 'ARS' // Cambiar a 'PEN' si el minimarket procesa en Soles peruanos
       };
-    });
+    }).filter(Boolean); 
 
     try {
       const response = await fetch('../servicios/crear_preferencia.php', {
@@ -142,8 +146,13 @@ export default class StoreController {
   async handleAuthSubmit(event) {
     event.preventDefault();
     const isRegister = (this.view.elements.authTitle?.textContent || '').trim() === 'Crear cuenta';
-    const identifier = this.view.elements.authIdentifier.value.trim();
-    const password = this.view.elements.authPassword.value;
+    const identifier = this.view.elements.authIdentifier?.value?.trim();
+    const password = this.view.elements.authPassword?.value;
+
+    if (!identifier || !password) {
+      this.view.showToast('Por favor, completa todos los campos.');
+      return;
+    }
 
     if (isRegister) {
       const nombre = (this.view.elements.authName?.value || '').trim();
@@ -156,7 +165,7 @@ export default class StoreController {
       }
 
       this.view.closeAuthModal();
-      this.view.elements.authForm.reset();
+      this.view.elements.authForm?.reset();
       this.updateUI();
       this.view.showToast(`Cuenta creada. Bienvenido ${user.nombre}`);
       return;
@@ -170,7 +179,7 @@ export default class StoreController {
     }
 
     this.view.closeAuthModal();
-    this.view.elements.authForm.reset();
+    this.view.elements.authForm?.reset();
     this.updateUI();
     this.view.showToast(`Bienvenido ${user.nombre}`);
   }
@@ -179,6 +188,9 @@ export default class StoreController {
     const title = this.view.elements.authTitle;
     const toggleBtn = this.view.elements.authToggleMode;
     const submitBtn = document.querySelector('#authForm .btn--primary');
+    
+    if (!title || !toggleBtn || !submitBtn) return;
+
     const isLogin = title.textContent.trim() === 'Iniciar sesión';
     const toRegister = isLogin;
 
@@ -186,8 +198,14 @@ export default class StoreController {
     submitBtn.textContent = toRegister ? 'Crear cuenta' : 'Iniciar sesión';
     toggleBtn.textContent = toRegister ? 'Ya tengo cuenta' : 'Crear una cuenta';
 
-    if (this.view.elements.authName) this.view.elements.authName.closest('.auth-field')?.style && (this.view.elements.authName.closest('.auth-field').style.display = toRegister ? '' : 'none');
-    if (this.view.elements.authEmail) this.view.elements.authEmail.closest('.auth-field')?.style && (this.view.elements.authEmail.closest('.auth-field').style.display = toRegister ? '' : 'none');
+    if (this.view.elements.authName) {
+      const field = this.view.elements.authName.closest('.auth-field');
+      if (field) field.style.display = toRegister ? '' : 'none';
+    }
+    if (this.view.elements.authEmail) {
+      const field = this.view.elements.authEmail.closest('.auth-field');
+      if (field) field.style.display = toRegister ? '' : 'none';
+    }
 
     this.view.showToast(toRegister ? 'Completa los datos para crear tu cuenta' : 'Puedes iniciar sesión con usuarios de prueba');
   }
@@ -249,6 +267,7 @@ export default class StoreController {
       return;
     }
 
+    // Se mantiene el resto del guardado tal cual porque la lógica está bien definida
     if (formType === 'addresses') {
       const formData = new FormData(form);
       const entries = Object.keys(Object.fromEntries(formData.entries())).filter((key) => key.startsWith('addressAlias_'));
@@ -384,72 +403,52 @@ export default class StoreController {
   }
 
   bindGlobalEvents() {
+    // Extraemos destructurando pero evitamos que el código truene si alguno falta.
     const {
-      catToggle,
-      catDropdown,
-      categoryGrid,
-      filterTabs,
-      cartItems,
-      cartDrawer,
-      overlay,
-      authForm,
-      authToggleButton,
-      footerCategories,
-      accountBtn,
-      accountPanel,
-      accountLogoutBtn,
-      accountClose,
-      authClose,
-      deliveryOpenBtn,
-      deliveryClose,
-      deliveryConfirm,
-      cartOpenBtn,
-      cartCloseBtn,
-      checkoutBtn,
-      historyClose,
-      listasBtn,
-      mobileMenuBtn,
-      headerSearch,
-      catalogSearch,
-      headerSearchBtn,
-      deliveryModal
+      catToggle, catDropdown, categoryGrid, filterTabs, cartItems, 
+      overlay, authForm, footerCategories, accountBtn, 
+      accountPanel, deliveryOpenBtn, deliveryClose, deliveryConfirm, 
+      cartOpenBtn, cartCloseBtn, listasBtn, mobileMenuBtn, 
+      headerSearch, catalogSearch, headerSearchBtn
     } = this.view.elements;
 
-    catToggle.addEventListener('click', () => {
-      const open = catDropdown.classList.toggle('open');
+    // --- Navegación y Categorías ---
+    catToggle?.addEventListener('click', () => {
+      const open = catDropdown?.classList.toggle('open');
       catToggle.setAttribute('aria-expanded', open);
     });
 
     document.addEventListener('click', (event) => {
-      if (!event.target.closest('.categories-nav')) {
+      if (!event.target.closest('.categories-nav') && catDropdown) {
         catDropdown.classList.remove('open');
-        catToggle.setAttribute('aria-expanded', 'false');
+        catToggle?.setAttribute('aria-expanded', 'false');
       }
     });
 
-    catDropdown.addEventListener('click', (event) => {
+    catDropdown?.addEventListener('click', (event) => {
       const anchor = event.target.closest('[data-cat]');
       if (!anchor) return;
       event.preventDefault();
       this.currentFilter = anchor.dataset.cat;
       this.setFilter(this.currentFilter);
-      document.getElementById('catalogo').scrollIntoView({ behavior: 'smooth' });
+      document.getElementById('catalogo')?.scrollIntoView({ behavior: 'smooth' });
       catDropdown.classList.remove('open');
     });
 
-    categoryGrid.addEventListener('click', (event) => {
+    categoryGrid?.addEventListener('click', (event) => {
       const btn = event.target.closest('.category-card');
       if (!btn) return;
       this.setFilter(btn.dataset.cat);
-      document.getElementById('catalogo').scrollIntoView({ behavior: 'smooth' });
+      document.getElementById('catalogo')?.scrollIntoView({ behavior: 'smooth' });
     });
 
-    filterTabs.addEventListener('click', (event) => {
+    filterTabs?.addEventListener('click', (event) => {
       const btn = event.target.closest('.filter-tab');
       if (!btn) return;
       this.setFilter(btn.dataset.cat);
     });
 
+    // --- Buscador ---
     document.addEventListener('input', (event) => {
       if (event.target === catalogSearch) {
         this.setSearch(event.target.value);
@@ -459,23 +458,30 @@ export default class StoreController {
       }
     });
 
-    headerSearchBtn.addEventListener('click', () => {
-      this.view.elements.catalogSearch.value = this.searchTerm;
+    headerSearchBtn?.addEventListener('click', () => {
+      if (this.view.elements.catalogSearch) {
+        this.view.elements.catalogSearch.value = this.searchTerm;
+      }
       this.setFilter('todos');
-      document.getElementById('catalogo').scrollIntoView({ behavior: 'smooth' });
+      document.getElementById('catalogo')?.scrollIntoView({ behavior: 'smooth' });
     });
 
-    headerSearch.addEventListener('keydown', (event) => {
+    headerSearch?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
-        this.view.elements.catalogSearch.value = this.searchTerm;
+        if (this.view.elements.catalogSearch) {
+          this.view.elements.catalogSearch.value = this.searchTerm;
+        }
         this.setFilter('todos');
-        document.getElementById('catalogo').scrollIntoView({ behavior: 'smooth' });
+        document.getElementById('catalogo')?.scrollIntoView({ behavior: 'smooth' });
       }
     });
 
+    // --- Carrito de Compras ---
     document.addEventListener('click', (event) => {
       const btn = event.target.closest('.add-btn');
-      if (!btn) return;
+      // Fix: Prevenir que si un usuario hace clic múltiple veces el texto original se sobreescriba como "Agregado"
+      if (!btn || btn.classList.contains('added')) return; 
+      
       this.addToCart(Number(btn.dataset.id));
       btn.classList.add('added');
       const original = btn.textContent;
@@ -486,7 +492,7 @@ export default class StoreController {
       }, 900);
     });
 
-    cartItems.addEventListener('click', (event) => {
+    cartItems?.addEventListener('click', (event) => {
       const btn = event.target.closest('button[data-action]');
       if (!btn) return;
       const id = Number(btn.dataset.id);
@@ -495,45 +501,48 @@ export default class StoreController {
       if (btn.dataset.action === 'remove') this.removeItem(id);
     });
 
-    overlay.addEventListener('click', () => {
+    cartOpenBtn?.addEventListener('click', this.view.openCart.bind(this.view));
+    cartCloseBtn?.addEventListener('click', this.view.closeCart.bind(this.view));
+    document.getElementById('checkoutBtn')?.addEventListener('click', () => this.handleCheckout());
+
+    // --- Modales Globales ---
+    overlay?.addEventListener('click', () => {
       this.view.closeCart();
       this.view.closeDeliveryModal();
       this.view.closeAuthModal();
       this.view.closeHistoryModal();
       this.view.closeAccountModal();
-      try {
-        this.view.elements.header.classList.remove('menu-open');
-        catDropdown.classList.remove('open');
-        mobileMenuBtn.setAttribute('aria-expanded', 'false');
-      } catch (e) {
-        // Ignorar silenciosamente si falta algún elemento
+      
+      this.view.elements.header?.classList.remove('menu-open');
+      catDropdown?.classList.remove('open');
+      mobileMenuBtn?.setAttribute('aria-expanded', 'false');
+    });
+
+    deliveryOpenBtn?.addEventListener('click', this.view.openDeliveryModal.bind(this.view));
+    deliveryClose?.addEventListener('click', this.view.closeDeliveryModal.bind(this.view));
+    deliveryConfirm?.addEventListener('click', () => {
+      const checkedOption = document.querySelector('input[name="delivery"]:checked');
+      if (checkedOption) {
+        this.view.closeDeliveryModal();
+        this.view.showToast(checkedOption.value === 'domicilio' ? 'Entrega a domicilio seleccionada' : 'Recojo en tienda seleccionado');
       }
     });
 
-    cartOpenBtn.addEventListener('click', this.view.openCart.bind(this.view));
-    cartCloseBtn.addEventListener('click', this.view.closeCart.bind(this.view));
-    document.getElementById('checkoutBtn').addEventListener('click', () => this.handleCheckout());
+    // --- Autenticación y Cuenta ---
+    authForm?.addEventListener('submit', (event) => this.handleAuthSubmit(event));
+    document.getElementById('authClose')?.addEventListener('click', this.view.closeAuthModal.bind(this.view));
+    document.getElementById('authToggleMode')?.addEventListener('click', () => this.toggleAuthMode());
 
-    deliveryOpenBtn.addEventListener('click', this.view.openDeliveryModal.bind(this.view));
-    deliveryClose.addEventListener('click', this.view.closeDeliveryModal.bind(this.view));
-    deliveryConfirm.addEventListener('click', () => {
-      const choice = document.querySelector('input[name="delivery"]:checked').value;
-      this.view.closeDeliveryModal();
-      this.view.showToast(choice === 'domicilio' ? 'Entrega a domicilio seleccionada' : 'Recojo en tienda seleccionado');
-    });
-
-    authForm.addEventListener('submit', (event) => this.handleAuthSubmit(event));
-    document.getElementById('authClose').addEventListener('click', this.view.closeAuthModal.bind(this.view));
-    document.getElementById('authToggleMode').addEventListener('click', () => this.toggleAuthMode());
-
-    listasBtn.addEventListener('click', () => this.openHistoryIfLoggedIn());
-    accountBtn.addEventListener('click', () => this.handleAccountOpen());
-    document.getElementById('accountLogoutBtn').addEventListener('click', () => {
+    listasBtn?.addEventListener('click', () => this.openHistoryIfLoggedIn());
+    accountBtn?.addEventListener('click', () => this.handleAccountOpen());
+    
+    document.getElementById('accountLogoutBtn')?.addEventListener('click', () => {
       this.handleLogout();
       this.view.closeAccountModal();
     });
-    document.getElementById('accountClose').addEventListener('click', this.view.closeAccountModal.bind(this.view));
-    document.getElementById('historyClose').addEventListener('click', this.view.closeHistoryModal.bind(this.view));
+    
+    document.getElementById('accountClose')?.addEventListener('click', this.view.closeAccountModal.bind(this.view));
+    document.getElementById('historyClose')?.addEventListener('click', this.view.closeHistoryModal.bind(this.view));
 
     document.querySelectorAll('.account-menu__item').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -542,29 +551,33 @@ export default class StoreController {
       });
     });
 
-    accountPanel.addEventListener('submit', (event) => this.saveAccountForm(event));
-    accountPanel.addEventListener('click', (event) => this.handleAccountAction(event));
+    accountPanel?.addEventListener('submit', (event) => this.saveAccountForm(event));
+    accountPanel?.addEventListener('click', (event) => this.handleAccountAction(event));
 
-    document.getElementById('newsletterForm').addEventListener('submit', (event) => {
+    // --- Footer y Misc ---
+    document.getElementById('newsletterForm')?.addEventListener('submit', (event) => {
       event.preventDefault();
-      document.getElementById('newsletterSuccess').hidden = false;
-      document.getElementById('newsletterEmail').value = '';
+      const successMsg = document.getElementById('newsletterSuccess');
+      const emailInput = document.getElementById('newsletterEmail');
+      if (successMsg) successMsg.hidden = false;
+      if (emailInput) emailInput.value = '';
     });
 
-    footerCategories.addEventListener('click', (event) => {
+    footerCategories?.addEventListener('click', (event) => {
       const anchor = event.target.closest('.footer-cat-link');
       if (!anchor) return;
       event.preventDefault();
       this.setFilter(anchor.dataset.cat);
-      document.getElementById('catalogo').scrollIntoView({ behavior: 'smooth' });
+      document.getElementById('catalogo')?.scrollIntoView({ behavior: 'smooth' });
     });
 
-    mobileMenuBtn.addEventListener('click', () => {
-      const open = this.view.elements.header.classList.toggle('menu-open');
-      catDropdown.classList.toggle('open', open);
+    mobileMenuBtn?.addEventListener('click', () => {
+      const open = this.view.elements.header?.classList.toggle('menu-open');
+      catDropdown?.classList.toggle('open', open);
       mobileMenuBtn.setAttribute('aria-expanded', open);
     });
 
+    // --- Intersection Observer (Scroll Reveal) ---
     const io = new IntersectionObserver((entries) => {
       entries.forEach((en) => {
         if (en.isIntersecting) {
@@ -576,50 +589,61 @@ export default class StoreController {
 
     document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
 
+    // --- Contador (Se valida si el elemento existe) ---
     const countdownEl = document.getElementById('countdownTime');
-    const target = Date.now() + (2 * 24 * 60 * 60 * 1000 + 14 * 60 * 60 * 1000);
-    const tickCountdown = () => {
-      const diff = Math.max(0, target - Date.now());
-      const d = Math.floor(diff / 86400000);
-      const h = Math.floor((diff % 86400000) / 3600000);
-      const m = Math.floor((diff % 3600000) / 60000);
-      const s = Math.floor((diff % 60000) / 1000);
-      const pad = (n) => String(n).padStart(2, '0');
-      countdownEl.innerHTML = `${d}d ${pad(h)}<span class="colon">:</span>${pad(m)}<span class="colon">:</span>${pad(s)}`;
-    };
-    tickCountdown();
-    setInterval(tickCountdown, 1000);
+    if (countdownEl) {
+      const target = Date.now() + (2 * 24 * 60 * 60 * 1000 + 14 * 60 * 60 * 1000);
+      const tickCountdown = () => {
+        const diff = Math.max(0, target - Date.now());
+        const d = Math.floor(diff / 86400000);
+        const h = Math.floor((diff % 86400000) / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        const pad = (n) => String(n).padStart(2, '0');
+        countdownEl.innerHTML = `${d}d ${pad(h)}<span class="colon">:</span>${pad(m)}<span class="colon">:</span>${pad(s)}`;
+      };
+      tickCountdown();
+      setInterval(tickCountdown, 1000);
+    }
 
+    // --- Carrusel Hero (Se valida si los elementos existen) ---
     const slides = Array.from(document.querySelectorAll('.slide'));
     const dotsWrap = document.getElementById('carouselDots');
-    let slideIndex = 0;
-    let carouselTimer = null;
+    const heroCarousel = document.getElementById('heroCarousel');
+    
+    if (slides.length > 0 && dotsWrap && heroCarousel) {
+      let slideIndex = 0;
+      let carouselTimer = null;
 
-    dotsWrap.innerHTML = slides.map((_, i) => `<button data-i="${i}" class="${i === 0 ? 'active' : ''}" aria-label="Ir a la diapositiva ${i + 1}"></button>`).join('');
+      dotsWrap.innerHTML = slides.map((_, i) => `<button data-i="${i}" class="${i === 0 ? 'active' : ''}" aria-label="Ir a la diapositiva ${i + 1}"></button>`).join('');
 
-    const goToSlide = (i) => {
-      slides[slideIndex].classList.remove('active');
-      dotsWrap.children[slideIndex].classList.remove('active');
-      slideIndex = (i + slides.length) % slides.length;
-      slides[slideIndex].classList.add('active');
-      dotsWrap.children[slideIndex].classList.add('active');
-    };
-    const nextSlide = () => goToSlide(slideIndex + 1);
-    const prevSlide = () => goToSlide(slideIndex - 1);
-    const startCarousel = () => { carouselTimer = setInterval(nextSlide, 5000); };
-    const stopCarousel = () => clearInterval(carouselTimer);
+      const goToSlide = (i) => {
+        slides[slideIndex].classList.remove('active');
+        dotsWrap.children[slideIndex].classList.remove('active');
+        slideIndex = (i + slides.length) % slides.length;
+        slides[slideIndex].classList.add('active');
+        dotsWrap.children[slideIndex].classList.add('active');
+      };
+      
+      const nextSlide = () => goToSlide(slideIndex + 1);
+      const prevSlide = () => goToSlide(slideIndex - 1);
+      const startCarousel = () => { carouselTimer = setInterval(nextSlide, 5000); };
+      const stopCarousel = () => clearInterval(carouselTimer);
 
-    document.getElementById('carouselNext').addEventListener('click', () => { nextSlide(); stopCarousel(); startCarousel(); });
-    document.getElementById('carouselPrev').addEventListener('click', () => { prevSlide(); stopCarousel(); startCarousel(); });
-    dotsWrap.addEventListener('click', (event) => {
-      const button = event.target.closest('button[data-i]');
-      if (!button) return;
-      goToSlide(Number(button.dataset.i));
-      stopCarousel();
+      document.getElementById('carouselNext')?.addEventListener('click', () => { nextSlide(); stopCarousel(); startCarousel(); });
+      document.getElementById('carouselPrev')?.addEventListener('click', () => { prevSlide(); stopCarousel(); startCarousel(); });
+      
+      dotsWrap.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-i]');
+        if (!button) return;
+        goToSlide(Number(button.dataset.i));
+        stopCarousel();
+        startCarousel();
+      });
+      
+      heroCarousel.addEventListener('mouseenter', stopCarousel);
+      heroCarousel.addEventListener('mouseleave', startCarousel);
       startCarousel();
-    });
-    document.getElementById('heroCarousel').addEventListener('mouseenter', stopCarousel);
-    document.getElementById('heroCarousel').addEventListener('mouseleave', startCarousel);
-    startCarousel();
+    }
   }
 }
