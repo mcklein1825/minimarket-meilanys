@@ -5,7 +5,7 @@ Proyecto: Empresa / Paginaweb_v1
 Nombre del proyecto: Minimarket Meilanys
 Fecha: 2026-08-26
 Autor: MCKLEIN
-Propósito: Manejar productos, categorías desde Supabase, usuarios, historial y sesión.
+Propósito: Manejar productos, categorías desde Supabase (sin emojis, con icono vacío), usuarios, historial y sesión.
 */
 
 const SUPABASE_URL = "https://bbfckczuqyzjgxltdisg.supabase.co"; 
@@ -15,32 +15,32 @@ export default class StoreModel {
   constructor() {
     this.sessionUser = null;
     
-    // Las 24 categorías exactas de la base de datos (respaldo local sin emojis)
+    // Categorías con icono vacío para no romper la vista
     this.categories = [
-      { id: '1', nombre: 'Abarrotes' },
-      { id: '2', nombre: 'Bebidas, Jugos y Aguas' },
-      { id: '3', nombre: 'Belleza, Moda y Accesorios' },
-      { id: '4', nombre: 'Carnes, Aves y Pescado' },
-      { id: '5', nombre: 'Cervezas y Cigarrillos' },
-      { id: '6', nombre: 'Condimentos' },
-      { id: '7', nombre: 'Congelados' },
-      { id: '8', nombre: 'Construcción y Ferretería' },
-      { id: '9', nombre: 'Cuidado Personal' },
-      { id: '10', nombre: 'Desayuno' },
-      { id: '11', nombre: 'Frutas y Verduras' },
-      { id: '12', nombre: 'Galletas, Dulces y Snacks' },
-      { id: '13', nombre: 'Huevos y Fiambres' },
-      { id: '14', nombre: 'Lavandería y Baño' },
-      { id: '15', nombre: 'Lácteos y Frescos' },
-      { id: '16', nombre: 'Librería' },
-      { id: '17', nombre: 'Licores' },
-      { id: '18', nombre: 'Limpieza' },
-      { id: '19', nombre: 'Mascotas' },
-      { id: '20', nombre: 'Menaje Hogar y Bazar' },
-      { id: '21', nombre: 'Pasteles' },
-      { id: '22', nombre: 'Panes' },
-      { id: '23', nombre: 'Postres' },
-      { id: '24', nombre: 'Repostería' }
+      { id: '1', nombre: 'Abarrotes', icono: '' },
+      { id: '2', nombre: 'Bebidas, Jugos y Aguas', icono: '' },
+      { id: '3', nombre: 'Belleza, Moda y Accesorios', icono: '' },
+      { id: '4', nombre: 'Carnes, Aves y Pescado', icono: '' },
+      { id: '5', nombre: 'Cervezas y Cigarrillos', icono: '' },
+      { id: '6', nombre: 'Condimentos', icono: '' },
+      { id: '7', nombre: 'Congelados', icono: '' },
+      { id: '8', nombre: 'Construcción y Ferretería', icono: '' },
+      { id: '9', nombre: 'Cuidado Personal', icono: '' },
+      { id: '10', nombre: 'Desayuno', icono: '' },
+      { id: '11', nombre: 'Frutas y Verduras', icono: '' },
+      { id: '12', nombre: 'Galletas, Dulces y Snacks', icono: '' },
+      { id: '13', nombre: 'Huevos y Fiambres', icono: '' },
+      { id: '14', nombre: 'Lavandería y Baño', icono: '' },
+      { id: '15', nombre: 'Lácteos y Frescos', icono: '' },
+      { id: '16', nombre: 'Librería', icono: '' },
+      { id: '17', nombre: 'Licores', icono: '' },
+      { id: '18', nombre: 'Limpieza', icono: '' },
+      { id: '19', nombre: 'Mascotas', icono: '' },
+      { id: '20', nombre: 'Menaje Hogar y Bazar', icono: '' },
+      { id: '21', nombre: 'Pasteles', icono: '' },
+      { id: '22', nombre: 'Panes', icono: '' },
+      { id: '23', nombre: 'Postres', icono: '' },
+      { id: '24', nombre: 'Repostería', icono: '' }
     ];
 
     let pid = 1;
@@ -98,7 +98,8 @@ export default class StoreModel {
       if (Array.isArray(data) && data.length > 0) {
         this.categories = data.map(cat => ({
           id: String(cat.id),
-          nombre: cat.nombre
+          nombre: cat.nombre,
+          icono: '' // Retorna string vacío para no mostrar 'undefined' en HTML
         }));
       }
       return this.categories;
