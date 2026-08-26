@@ -3,7 +3,7 @@ Archivo: controllers/storeController.js
 Ruta: c:\xampp\htdocs\Empresa\Paginaweb_v1\controllers\storeController.js
 Proyecto: Empresa / Paginaweb_v1
 Nombre del proyecto: Minimarket Meilanys
-Fecha: 2026-08-24
+Fecha: 2026-08-26
 Autor: Yo, como responsable del desarrollo, creo y mantengo este archivo.
 Propósito: coordinar la interacción del usuario con el modelo y la vista para control de flujo, autenticación y pagos.
 Tecnologías: JavaScript ES6, fetch, eventos del navegador, asincronía.
@@ -19,7 +19,8 @@ export default class StoreController {
 
   async init() {
     window.__storeController = this;
-    this.model.ensureUsers();
+    
+    // Carga la sesión activa del usuario
     await this.model.loadSession();
     
     // Carga las categorías desde Supabase antes de renderizar la UI
@@ -76,7 +77,6 @@ export default class StoreController {
   }
 
   removeItem(id) {
-    // Verificamos si cartItems existe antes de usar querySelector
     const cartItemsEl = this.view.elements.cartItems;
     const cartItem = cartItemsEl ? cartItemsEl.querySelector(`[data-cart-id="${id}"]`) : null;
     
@@ -106,7 +106,6 @@ export default class StoreController {
       return;
     }
 
-    // Filtrado de seguridad: evitamos items nulos si el producto ya no existe en el modelo
     const items = ids.map((id) => {
       const product = this.model.products.find((pr) => pr.id === Number(id));
       if (!product) return null;
@@ -116,7 +115,7 @@ export default class StoreController {
         title: product.nombre,
         quantity: qty,
         unit_price: Number(product.precio),
-        currency_id: 'ARS' // Cambiar a 'PEN' si el minimarket procesa en Soles peruanos
+        currency_id: 'ARS'
       };
     }).filter(Boolean); 
 
@@ -207,7 +206,7 @@ export default class StoreController {
       if (field) field.style.display = toRegister ? '' : 'none';
     }
 
-    this.view.showToast(toRegister ? 'Completa los datos para crear tu cuenta' : 'Puedes iniciar sesión con usuarios de prueba');
+    this.view.showToast(toRegister ? 'Completa los datos para crear tu cuenta' : 'Ingresa tus credenciales');
   }
 
   async handleLogout() {
@@ -267,7 +266,6 @@ export default class StoreController {
       return;
     }
 
-    // Se mantiene el resto del guardado tal cual porque la lógica está bien definida
     if (formType === 'addresses') {
       const formData = new FormData(form);
       const entries = Object.keys(Object.fromEntries(formData.entries())).filter((key) => key.startsWith('addressAlias_'));
@@ -323,8 +321,16 @@ export default class StoreController {
       const currentPassword = formData.get('currentPassword')?.toString() || '';
       const newPassword = formData.get('newPassword')?.toString() || '';
       const confirmPassword = formData.get('confirmPassword')?.toString() || '';
-      const users = this.model.ensureUsers();
+      
+      // Validación segura: Evita error si la función local ya no existe
+      const users = typeof this.model.ensureUsers === 'function' ? this.model.ensureUsers() : [];
       const currentUser = this.model.getCurrentUser();
+      
+      if (!users || users.length === 0) {
+        this.view.showToast('Gestión de contraseñas manejada por el nuevo servidor.');
+        return;
+      }
+
       const userRecord = users.find((u) => u.username === currentUser.username || u.email === currentUser.email);
 
       if (!userRecord || userRecord.password !== currentPassword) {
@@ -367,8 +373,13 @@ export default class StoreController {
       const shouldDelete = window.confirm('¿Seguro que quieres eliminar tu cuenta? Esta acción no se puede deshacer.');
       if (!shouldDelete) return;
       const currentUser = this.model.getCurrentUser();
-      const users = this.model.ensureUsers().filter((u) => u.username !== currentUser.username);
-      localStorage.setItem(this.model.STORAGE_USERS, JSON.stringify(users));
+      
+      // Validación segura: Evita error si la función local ya no existe
+      if (typeof this.model.ensureUsers === 'function') {
+        const users = this.model.ensureUsers().filter((u) => u.username !== currentUser.username);
+        localStorage.setItem(this.model.STORAGE_USERS, JSON.stringify(users));
+      }
+      
       const map = this.model.getAccountDataMap();
       delete map[currentUser.username];
       this.model.saveAccountDataMap(map);
@@ -403,7 +414,6 @@ export default class StoreController {
   }
 
   bindGlobalEvents() {
-    // Extraemos destructurando pero evitamos que el código truene si alguno falta.
     const {
       catToggle, catDropdown, categoryGrid, filterTabs, cartItems, 
       overlay, authForm, footerCategories, accountBtn, 
@@ -412,7 +422,6 @@ export default class StoreController {
       headerSearch, catalogSearch, headerSearchBtn
     } = this.view.elements;
 
-    // --- Navegación y Categorías ---
     catToggle?.addEventListener('click', () => {
       const open = catDropdown?.classList.toggle('open');
       catToggle.setAttribute('aria-expanded', open);
@@ -448,7 +457,6 @@ export default class StoreController {
       this.setFilter(btn.dataset.cat);
     });
 
-    // --- Buscador ---
     document.addEventListener('input', (event) => {
       if (event.target === catalogSearch) {
         this.setSearch(event.target.value);
@@ -476,10 +484,8 @@ export default class StoreController {
       }
     });
 
-    // --- Carrito de Compras ---
     document.addEventListener('click', (event) => {
       const btn = event.target.closest('.add-btn');
-      // Fix: Prevenir que si un usuario hace clic múltiple veces el texto original se sobreescriba como "Agregado"
       if (!btn || btn.classList.contains('added')) return; 
       
       this.addToCart(Number(btn.dataset.id));
@@ -505,7 +511,6 @@ export default class StoreController {
     cartCloseBtn?.addEventListener('click', this.view.closeCart.bind(this.view));
     document.getElementById('checkoutBtn')?.addEventListener('click', () => this.handleCheckout());
 
-    // --- Modales Globales ---
     overlay?.addEventListener('click', () => {
       this.view.closeCart();
       this.view.closeDeliveryModal();
@@ -528,7 +533,6 @@ export default class StoreController {
       }
     });
 
-    // --- Autenticación y Cuenta ---
     authForm?.addEventListener('submit', (event) => this.handleAuthSubmit(event));
     document.getElementById('authClose')?.addEventListener('click', this.view.closeAuthModal.bind(this.view));
     document.getElementById('authToggleMode')?.addEventListener('click', () => this.toggleAuthMode());
@@ -554,7 +558,6 @@ export default class StoreController {
     accountPanel?.addEventListener('submit', (event) => this.saveAccountForm(event));
     accountPanel?.addEventListener('click', (event) => this.handleAccountAction(event));
 
-    // --- Footer y Misc ---
     document.getElementById('newsletterForm')?.addEventListener('submit', (event) => {
       event.preventDefault();
       const successMsg = document.getElementById('newsletterSuccess');
@@ -577,7 +580,6 @@ export default class StoreController {
       mobileMenuBtn.setAttribute('aria-expanded', open);
     });
 
-    // --- Intersection Observer (Scroll Reveal) ---
     const io = new IntersectionObserver((entries) => {
       entries.forEach((en) => {
         if (en.isIntersecting) {
@@ -589,7 +591,6 @@ export default class StoreController {
 
     document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
 
-    // --- Contador (Se valida si el elemento existe) ---
     const countdownEl = document.getElementById('countdownTime');
     if (countdownEl) {
       const target = Date.now() + (2 * 24 * 60 * 60 * 1000 + 14 * 60 * 60 * 1000);
@@ -606,7 +607,6 @@ export default class StoreController {
       setInterval(tickCountdown, 1000);
     }
 
-    // --- Carrusel Hero (Se valida si los elementos existen) ---
     const slides = Array.from(document.querySelectorAll('.slide'));
     const dotsWrap = document.getElementById('carouselDots');
     const heroCarousel = document.getElementById('heroCarousel');
