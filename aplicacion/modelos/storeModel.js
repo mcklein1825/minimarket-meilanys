@@ -11,49 +11,36 @@ Propósito: Manejar productos, categorías desde Supabase, usuarios, historial y
 const SUPABASE_URL = "https://bbfckczuqyzjgxltdisg.supabase.co"; 
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJiZmNrY3p1cXl6amd4bHRkaXNnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1ODE4MzYsImV4cCI6MjEwMzE1NzgzNn0.e7dESMTDKMpVZqZSXZEX6iS-VFbgQECyzIHNp6B9cuk";
 
-// Función auxiliar para asignar íconos según el nombre traído de Supabase
-function getIconForCategory(nombre = '') {
-  const n = nombre.toLowerCase();
-  if (n.includes('abarrotes')) return '🍚';
-  if (n.includes('bebidas')) return '🥤';
-  if (n.includes('belleza')) return '💄';
-  if (n.includes('carnes')) return '🥩';
-  if (n.includes('cervezas')) return '🍺';
-  if (n.includes('condimentos')) return '🧂';
-  if (n.includes('congelados')) return '🧊';
-  if (n.includes('ferretería') || n.includes('construcción')) return '🛠️';
-  if (n.includes('cuidado personal')) return '🧼';
-  if (n.includes('desayuno')) return '☕';
-  if (n.includes('frutas')) return '🥬';
-  if (n.includes('galletas') || n.includes('snack')) return '🍪';
-  if (n.includes('huevos')) return '🥚';
-  if (n.includes('lavandería')) return '🧺';
-  if (n.includes('lácteos')) return '🥛';
-  if (n.includes('librería')) return '📚';
-  if (n.includes('licores')) return '🍾';
-  if (n.includes('limpieza')) return '🧹';
-  if (n.includes('mascotas')) return '🐾';
-  if (n.includes('menaje')) return '🏠';
-  if (n.includes('pasteles') || n.includes('postres')) return '🍰';
-  if (n.includes('panes')) return '🥖';
-  if (n.includes('repostería')) return '🧁';
-  return '📦';
-}
-
 export default class StoreModel {
   constructor() {
     this.sessionUser = null;
     
-    // Categorías iniciales idénticas a la base de datos de Supabase
+    // Las 24 categorías exactas de la base de datos (respaldo local sin emojis)
     this.categories = [
-      { id: '1', nombre: 'Abarrotes', icono: '🍚' },
-      { id: '2', nombre: 'Bebidas, Jugos y Aguas', icono: '🥤' },
-      { id: '4', nombre: 'Carnes, Aves y Pescado', icono: '🥩' },
-      { id: '7', nombre: 'Congelados', icono: '🧊' },
-      { id: '9', nombre: 'Cuidado Personal', icono: '🧼' },
-      { id: '11', nombre: 'Frutas y Verduras', icono: '🥬' },
-      { id: '12', nombre: 'Galletas, Dulces y Snacks', icono: '🍪' },
-      { id: '15', nombre: 'Lácteos y Frescos', icono: '🥛' }
+      { id: '1', nombre: 'Abarrotes' },
+      { id: '2', nombre: 'Bebidas, Jugos y Aguas' },
+      { id: '3', nombre: 'Belleza, Moda y Accesorios' },
+      { id: '4', nombre: 'Carnes, Aves y Pescado' },
+      { id: '5', nombre: 'Cervezas y Cigarrillos' },
+      { id: '6', nombre: 'Condimentos' },
+      { id: '7', nombre: 'Congelados' },
+      { id: '8', nombre: 'Construcción y Ferretería' },
+      { id: '9', nombre: 'Cuidado Personal' },
+      { id: '10', nombre: 'Desayuno' },
+      { id: '11', nombre: 'Frutas y Verduras' },
+      { id: '12', nombre: 'Galletas, Dulces y Snacks' },
+      { id: '13', nombre: 'Huevos y Fiambres' },
+      { id: '14', nombre: 'Lavandería y Baño' },
+      { id: '15', nombre: 'Lácteos y Frescos' },
+      { id: '16', nombre: 'Librería' },
+      { id: '17', nombre: 'Licores' },
+      { id: '18', nombre: 'Limpieza' },
+      { id: '19', nombre: 'Mascotas' },
+      { id: '20', nombre: 'Menaje Hogar y Bazar' },
+      { id: '21', nombre: 'Pasteles' },
+      { id: '22', nombre: 'Panes' },
+      { id: '23', nombre: 'Postres' },
+      { id: '24', nombre: 'Repostería' }
     ];
 
     let pid = 1;
@@ -94,9 +81,8 @@ export default class StoreModel {
   // --- CARGA DE CATEGORÍAS (DESDE SUPABASE) ---
   async loadCategories() {
     try {
-      // Consulta a Supabase filtrando solo las activas (estado = true) ordenadas por id
       const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/categorias?estado=eq.true&select=id,nombre,estado&order=id.asc`,
+        `${SUPABASE_URL}/rest/v1/categorias?estado=eq.true&select=id,nombre&order=id.asc`,
         {
           method: 'GET',
           headers: {
@@ -112,8 +98,7 @@ export default class StoreModel {
       if (Array.isArray(data) && data.length > 0) {
         this.categories = data.map(cat => ({
           id: String(cat.id),
-          nombre: cat.nombre,
-          icono: getIconForCategory(cat.nombre)
+          nombre: cat.nombre
         }));
       }
       return this.categories;
@@ -165,7 +150,6 @@ export default class StoreModel {
   }
 
   async loginUser(identifier, password) {
-    // 1. Consulta a Supabase
     try {
       const response = await fetch(
         `${SUPABASE_URL}/rest/v1/usuarios?or=(username.eq.${identifier},email.eq.${identifier})&password=eq.${password}&select=*`,
@@ -188,7 +172,6 @@ export default class StoreModel {
       console.warn('Error al conectar con Supabase en login, usando respaldo local...', e);
     }
 
-    // 2. Respaldo Local si no existe en Supabase
     const localUsers = this.ensureUsers();
     const found = localUsers.find(
       u => (u.username === identifier || u.email === identifier) && u.password === password
