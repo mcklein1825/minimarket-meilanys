@@ -5,7 +5,7 @@ Proyecto: Empresa / Paginaweb_v1
 Nombre del proyecto: Minimarket Meilanys
 Fecha: 2026-08-26
 Autor: MCKLEIN
-Propósito: Manejar productos, categorías desde Supabase (sin emojis, con icono vacío), usuarios, historial y sesión.
+Propósito: Manejar productos, categorías y autenticación en Supabase mapeada a la columna 'correo'.
 */
 
 const SUPABASE_URL = "https://bbfckczuqyzjgxltdisg.supabase.co"; 
@@ -15,7 +15,6 @@ export default class StoreModel {
   constructor() {
     this.sessionUser = null;
     
-    // Categorías con icono vacío para no romper la vista
     this.categories = [
       { id: '1', nombre: 'Abarrotes', icono: '' },
       { id: '2', nombre: 'Bebidas, Jugos y Aguas', icono: '' },
@@ -54,13 +53,10 @@ export default class StoreModel {
       p('11', 'Palta Hass', 7.90, 'kg', '🥑'),
       p('11', 'Plátano de seda', 3.20, 'kg', '🍌'),
       p('11', 'Tomate italiano', 4.80, 'kg', '🍅', 6.00),
-
       p('2', 'Agua mineral sin gas 2.5L', 3.50, 'unidad', '💧'),
       p('2', 'Gaseosa cola 1.5L', 6.90, 'unidad', '🥤', 8.50),
-
       p('15', 'Leche evaporada 400g', 3.80, 'unidad', '🥛'),
       p('13', 'Huevos rojos x30', 14.90, 'paquete', '🥚', 17.90),
-
       p('22', 'Pan francés x10', 4.00, 'unidad', '🥖'),
       p('4', 'Pechuga de pollo', 14.90, 'kg', '🍗'),
       p('1', 'Arroz extra 5kg', 19.90, 'bolsa', '🍚'),
@@ -78,7 +74,7 @@ export default class StoreModel {
     this.STORAGE_ACCOUNT_DATA = 'la-canasta-account-data';
   }
 
-  // --- CARGA DE CATEGORÍAS (DESDE SUPABASE) ---
+  // --- CARGA DE CATEGORÍAS ---
   async loadCategories() {
     try {
       const response = await fetch(
@@ -99,7 +95,7 @@ export default class StoreModel {
         this.categories = data.map(cat => ({
           id: String(cat.id),
           nombre: cat.nombre,
-          icono: '' // Retorna string vacío para no mostrar 'undefined' en HTML
+          icono: ''
         }));
       }
       return this.categories;
@@ -120,10 +116,11 @@ export default class StoreModel {
     if (!raw) return null;
     try {
       const user = JSON.parse(raw);
-      if (user && (user.username || user.email || user.nombre)) {
+      if (user && (user.username || user.email || user.correo || user.nombre)) {
         this.sessionUser = {
           ...user,
-          username: user.username || user.email || 'usuario'
+          email: user.correo || user.email,
+          username: user.correo || user.username || user.nombre || 'usuario'
         };
         return this.sessionUser;
       }
@@ -143,7 +140,8 @@ export default class StoreModel {
 
     const normalizedUser = {
       ...user,
-      username: user.username || user.email || 'usuario'
+      email: user.correo || user.email,
+      username: user.correo || user.username || user.nombre || 'usuario'
     };
 
     this.sessionUser = normalizedUser;
@@ -151,9 +149,10 @@ export default class StoreModel {
   }
 
   async loginUser(identifier, password) {
+    // 1. Consulta a Supabase adaptada a la columna 'correo' y 'nombre'
     try {
       const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/usuarios?or=(username.eq.${identifier},email.eq.${identifier})&password=eq.${password}&select=*`,
+        `${SUPABASE_URL}/rest/v1/usuarios?or=(correo.eq.${identifier},nombre.eq.${identifier})&password=eq.${password}&select=*`,
         {
           headers: {
             'apikey': SUPABASE_ANON_KEY,
@@ -165,17 +164,24 @@ export default class StoreModel {
       if (response.ok) {
         const users = await response.json();
         if (users && users.length > 0) {
-          this.setCurrentUser(users[0]);
-          return users[0];
+          const user = users[0];
+          const normalized = {
+            ...user,
+            email: user.correo,
+            username: user.correo || user.nombre
+          };
+          this.setCurrentUser(normalized);
+          return normalized;
         }
       }
     } catch (e) {
-      console.warn('Error al conectar con Supabase en login, usando respaldo local...', e);
+      console.warn('Error en Supabase login, probando local...', e);
     }
 
+    // 2. Respaldo Local
     const localUsers = this.ensureUsers();
     const found = localUsers.find(
-      u => (u.username === identifier || u.email === identifier) && u.password === password
+      u => (u.username === identifier || u.email === identifier || u.correo === identifier) && u.password === password
     );
 
     if (found) {
@@ -187,10 +193,12 @@ export default class StoreModel {
   }
 
   async registerUser({ nombre, usernameOrEmail, email, password }) {
-    const newUser = {
+    const userCorreo = email || usernameOrEmail;
+    
+    // Objeto con la estructura exacta de la tabla de Supabase
+    const newUserDB = {
       nombre: nombre || usernameOrEmail,
-      username: usernameOrEmail,
-      email: email || usernameOrEmail,
+      correo: userCorreo,
       password: password
     };
 
@@ -203,14 +211,20 @@ export default class StoreModel {
           'Content-Type': 'application/json',
           'Prefer': 'return=representation'
         },
-        body: JSON.stringify(newUser)
+        body: JSON.stringify(newUserDB)
       });
 
       if (response.ok) {
         const createdUsers = await response.json();
         if (createdUsers && createdUsers.length > 0) {
-          this.setCurrentUser(createdUsers[0]);
-          return createdUsers[0];
+          const created = createdUsers[0];
+          const normalized = {
+            ...created,
+            email: created.correo,
+            username: created.correo || created.nombre
+          };
+          this.setCurrentUser(normalized);
+          return normalized;
         }
       }
     } catch (e) {
@@ -218,10 +232,10 @@ export default class StoreModel {
     }
 
     const localUsers = this.ensureUsers();
-    localUsers.push(newUser);
+    localUsers.push(newUserDB);
     localStorage.setItem(this.STORAGE_USERS, JSON.stringify(localUsers));
-    this.setCurrentUser(newUser);
-    return newUser;
+    this.setCurrentUser(newUserDB);
+    return newUserDB;
   }
 
   async logoutUser() {
@@ -231,8 +245,8 @@ export default class StoreModel {
 
   ensureUsers() {
     const demoUsers = [
-      { nombre: 'Administrador', username: 'admin', email: 'admin@lacanasta.com', password: 'admin123' },
-      { nombre: 'María López', username: 'maria', email: 'maria@lacanasta.com', password: 'maria2025' }
+      { nombre: 'Administrador', username: 'admin', correo: 'admin@lacanasta.com', password: 'admin123' },
+      { nombre: 'María López', username: 'maria', correo: 'maria@lacanasta.com', password: 'maria2025' }
     ];
 
     const stored = localStorage.getItem(this.STORAGE_USERS);
@@ -328,7 +342,7 @@ export default class StoreModel {
         profile: {
           nombre: user.nombre,
           username: user.username,
-          email: user.email,
+          email: user.email || user.correo,
           phone: '',
           dni: ''
         },
@@ -357,7 +371,7 @@ export default class StoreModel {
       ...user,
       nombre: profile.nombre || user.nombre,
       username: profile.username || user.username,
-      email: profile.email || user.email
+      email: profile.email || user.email || user.correo
     };
     localStorage.setItem(this.STORAGE_SESSION, JSON.stringify(updated));
   }
