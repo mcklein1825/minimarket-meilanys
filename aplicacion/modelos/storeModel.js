@@ -49,12 +49,21 @@ export default class StoreModel {
       const data = await response.json();
 
       if (data.exito && Array.isArray(data.categorias) && data.categorias.length > 0) {
-        this.categories = data.categorias.map(cat => ({
-          id: cat.slug || cat.nombre,
-          nombre: cat.nombre,
-          slug: cat.slug || cat.nombre,
-          icono: cat.icono || ''
-        }));
+        this.categories = data.categorias.map(cat => {
+          // Generar un slug válido a partir del nombre (ej: "Frutas y Verduras" -> "frutas-y-verduras")
+          const generatedSlug = cat.nombre
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9]/g, '-');
+
+          return {
+            id: cat.id || cat.nombre, // Usa el ID de la base de datos
+            nombre: cat.nombre,
+            slug: generatedSlug,
+            icono: cat.icono || '🛒' // Fallback visual para evitar el "undefined"
+          };
+        });
       }
     } catch (error) {
       console.warn('No se pudieron obtener las categorías dinámicas, usando fallback:', error);
