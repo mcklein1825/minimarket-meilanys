@@ -20,7 +20,8 @@ export default class StoreController {
     this.model.ensureUsers();
     await this.model.loadSession();
 
-    // 2. Cargar catálogo dinámico desde la BD (Supabase / MySQL)
+    // 2. Cargar categorías y productos dinámicos desde la BD (Supabase / MySQL)
+    await this.model.fetchCategoriesFromDB(); // <-- Carga de categorías
     await this.model.fetchProductsFromDB();
     
     // 3. Inicializar la interfaz y eventos
