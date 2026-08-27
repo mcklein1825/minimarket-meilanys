@@ -60,8 +60,7 @@ export default class StoreModel {
           return {
             id: cat.id || cat.nombre, // Usa el ID de la base de datos
             nombre: cat.nombre,
-            slug: generatedSlug,
-            icono: cat.icono || '🛒' // Fallback visual para evitar el "undefined"
+            slug: generatedSlug
           };
         });
       }
