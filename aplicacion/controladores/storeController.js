@@ -123,7 +123,7 @@ export default class StoreController {
 
     try {
       // 4) Llamamos al backend para crear la preferencia de pago enviando el correo de forma segura
-      const response = await fetch('../servicios/crear_preferencia.php', {
+      const response = await fetch('crear_preferencia.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -135,7 +135,7 @@ export default class StoreController {
       });
 
       const data = await response.json();
-
+      
       // 5) Si Mercado Pago responde con init_point, redirigimos al checkout
       if (!response.ok || !data.init_point) {
         const message = data?.hint || data?.error || 'No se pudo crear la preferencia';
