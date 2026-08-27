@@ -1,378 +1,163 @@
 /*
-Archivo: models/storeModel.js
-Ruta: c:\xampp\htdocs\Empresa\Paginaweb_v1\models\storeModel.js
-Proyecto: Empresa / Paginaweb_v1
-Nombre del proyecto: Minimarket Meilanys
-Fecha: 2026-08-26
-Autor: MCKLEIN
-Propósito: Manejar productos, categorías y autenticación en Supabase mapeada a la columna 'correo'.
+Archivo: modelos/storeModel.js
+Proyecto: Minimarket Meilanys
 */
-
-const SUPABASE_URL = "https://bbfckczuqyzjgxltdisg.supabase.co"; 
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJiZmNrY3p1cXl6amd4bHRkaXNnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1ODE4MzYsImV4cCI6MjEwMzE1NzgzNn0.e7dESMTDKMpVZqZSXZEX6iS-VFbgQECyzIHNp6B9cuk";
-
 export default class StoreModel {
   constructor() {
-    this.sessionUser = null;
-    
-    this.categories = [
-      { id: '1', nombre: 'Abarrotes', icono: '' },
-      { id: '2', nombre: 'Bebidas, Jugos y Aguas', icono: '' },
-      { id: '3', nombre: 'Belleza, Moda y Accesorios', icono: '' },
-      { id: '4', nombre: 'Carnes, Aves y Pescado', icono: '' },
-      { id: '5', nombre: 'Cervezas y Cigarrillos', icono: '' },
-      { id: '6', nombre: 'Condimentos', icono: '' },
-      { id: '7', nombre: 'Congelados', icono: '' },
-      { id: '8', nombre: 'Construcción y Ferretería', icono: '' },
-      { id: '9', nombre: 'Cuidado Personal', icono: '' },
-      { id: '10', nombre: 'Desayuno', icono: '' },
-      { id: '11', nombre: 'Frutas y Verduras', icono: '' },
-      { id: '12', nombre: 'Galletas, Dulces y Snacks', icono: '' },
-      { id: '13', nombre: 'Huevos y Fiambres', icono: '' },
-      { id: '14', nombre: 'Lavandería y Baño', icono: '' },
-      { id: '15', nombre: 'Lácteos y Frescos', icono: '' },
-      { id: '16', nombre: 'Librería', icono: '' },
-      { id: '17', nombre: 'Licores', icono: '' },
-      { id: '18', nombre: 'Limpieza', icono: '' },
-      { id: '19', nombre: 'Mascotas', icono: '' },
-      { id: '20', nombre: 'Menaje Hogar y Bazar', icono: '' },
-      { id: '21', nombre: 'Pasteles', icono: '' },
-      { id: '22', nombre: 'Panes', icono: '' },
-      { id: '23', nombre: 'Postres', icono: '' },
-      { id: '24', nombre: 'Repostería', icono: '' }
-    ];
-
-    let pid = 1;
-    const p = (categoria, nombre, precio, unidad, icono, precioAnterior, rating) => ({
-      id: pid++, categoria, nombre, precio, unidad, icono,
-      precioAnterior: precioAnterior || null,
-      rating: rating || (4.3 + Math.random() * 0.6).toFixed(1)
-    });
-
-    this.products = [
-      p('11', 'Palta Hass', 7.90, 'kg', '🥑'),
-      p('11', 'Plátano de seda', 3.20, 'kg', '🍌'),
-      p('11', 'Tomate italiano', 4.80, 'kg', '🍅', 6.00),
-      p('2', 'Agua mineral sin gas 2.5L', 3.50, 'unidad', '💧'),
-      p('2', 'Gaseosa cola 1.5L', 6.90, 'unidad', '🥤', 8.50),
-      p('15', 'Leche evaporada 400g', 3.80, 'unidad', '🥛'),
-      p('13', 'Huevos rojos x30', 14.90, 'paquete', '🥚', 17.90),
-      p('22', 'Pan francés x10', 4.00, 'unidad', '🥖'),
-      p('4', 'Pechuga de pollo', 14.90, 'kg', '🍗'),
-      p('1', 'Arroz extra 5kg', 19.90, 'bolsa', '🍚'),
-      p('12', 'Galletas de vainilla', 4.50, 'paquete', '🍪'),
-      p('9', 'Shampoo anticaspa 400ml', 19.90, 'unidad', '🧴'),
-      p('19', 'Alimento para perro 15kg', 89.90, 'bolsa', '🐶')
-    ];
-
+    this.products = [];
+    this.categories = [];
     this.cart = {};
-    this.currentFilter = 'todos';
-    this.searchTerm = '';
-    this.STORAGE_USERS = 'la-canasta-users';
-    this.STORAGE_SESSION = 'la-canasta-session';
-    this.STORAGE_HISTORY = 'la-canasta-order-history';
-    this.STORAGE_ACCOUNT_DATA = 'la-canasta-account-data';
+    this.STORAGE_USERS = 'meilanys_users';
+    this.STORAGE_SESSION = 'meilanys_session';
+    this.STORAGE_ACCOUNTS = 'meilanys_accounts';
+    this.STORAGE_ORDERS = 'meilanys_orders'; // Nuevo: para historial de pedidos
+    this.currentUser = null;
   }
 
-  // --- CARGA DE CATEGORÍAS ---
-  async loadCategories() {
+  // --- NUEVO: Cargar productos desde Supabase ---
+  async fetchProductsFromDB() {
     try {
-      const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/categorias?estado=eq.true&select=id,nombre&order=id.asc`,
-        {
-          method: 'GET',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-          }
-        }
-      );
-
-      if (!response.ok) throw new Error("Error consultando categorías en Supabase");
-
+      const response = await fetch('../servicios/obtener_productos.php');
+      if (!response.ok) throw new Error('Respuesta inválida del servidor');
+      
       const data = await response.json();
+      
       if (Array.isArray(data) && data.length > 0) {
-        this.categories = data.map(cat => ({
-          id: String(cat.id),
-          nombre: cat.nombre,
-          icono: ''
-        }));
+        this.products = data;
+        
+        // Genera las categorías automáticamente
+        const uniqueCats = [...new Set(data.map(p => p.categoria))];
+        this.categories = uniqueCats.map(c => ({ id: c, nombre: c }));
       }
-      return this.categories;
     } catch (error) {
-      console.warn('Usando categorías locales por fallo en la consulta:', error);
-      return this.categories;
+      console.error('Error al cargar productos desde la base de datos:', error);
     }
   }
 
-  // --- AUTENTICACIÓN Y SESIÓN ---
-  async loadSession() {
-    return this.getCurrentUser();
+  // --- NUEVO: Guardar historial de pedidos ---
+  saveOrder(user, order) {
+    const historyMap = JSON.parse(localStorage.getItem(this.STORAGE_ORDERS) || '{}');
+    if (!historyMap[user.username]) historyMap[user.username] = [];
+    historyMap[user.username].unshift(order); // Coloca el pedido más reciente al inicio
+    localStorage.setItem(this.STORAGE_ORDERS, JSON.stringify(historyMap));
   }
 
-  getCurrentUser() {
-    if (this.sessionUser) return this.sessionUser;
-    const raw = localStorage.getItem(this.STORAGE_SESSION);
-    if (!raw) return null;
-    try {
-      const user = JSON.parse(raw);
-      if (user && (user.username || user.email || user.correo || user.nombre)) {
-        this.sessionUser = {
-          ...user,
-          email: user.correo || user.email,
-          username: user.correo || user.username || user.nombre || 'usuario'
-        };
-        return this.sessionUser;
-      }
-      return null;
-    } catch (error) {
-      return null;
-    }
+  loadOrderHistory(user) {
+    if (!user) return [];
+    const historyMap = JSON.parse(localStorage.getItem(this.STORAGE_ORDERS) || '{}');
+    return historyMap[user.username] || [];
   }
 
-  setCurrentUser(user) {
-    if (!user) {
-      this.sessionUser = null;
-      localStorage.removeItem(this.STORAGE_SESSION);
-      this.cart = {};
-      return;
-    }
-
-    const normalizedUser = {
-      ...user,
-      email: user.correo || user.email,
-      username: user.correo || user.username || user.nombre || 'usuario'
-    };
-
-    this.sessionUser = normalizedUser;
-    localStorage.setItem(this.STORAGE_SESSION, JSON.stringify(normalizedUser));
-  }
-
-  async loginUser(identifier, password) {
-    // 1. Consulta a Supabase adaptada a la columna 'correo' y 'nombre'
-    try {
-      const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/usuarios?or=(correo.eq.${identifier},nombre.eq.${identifier})&password=eq.${password}&select=*`,
-        {
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-          }
-        }
-      );
-
-      if (response.ok) {
-        const users = await response.json();
-        if (users && users.length > 0) {
-          const user = users[0];
-          const normalized = {
-            ...user,
-            email: user.correo,
-            username: user.correo || user.nombre
-          };
-          this.setCurrentUser(normalized);
-          return normalized;
-        }
-      }
-    } catch (e) {
-      console.warn('Error en Supabase login, probando local...', e);
-    }
-
-    // 2. Respaldo Local
-    const localUsers = this.ensureUsers();
-    const found = localUsers.find(
-      u => (u.username === identifier || u.email === identifier || u.correo === identifier) && u.password === password
-    );
-
-    if (found) {
-      this.setCurrentUser(found);
-      return found;
-    }
-
-    return null;
-  }
-
-  async registerUser({ nombre, usernameOrEmail, email, password }) {
-    const userCorreo = email || usernameOrEmail;
-    
-    // Objeto con la estructura exacta de la tabla de Supabase
-    const newUserDB = {
-      nombre: nombre || usernameOrEmail,
-      correo: userCorreo,
-      password: password
-    };
-
-    try {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/usuarios`, {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation'
-        },
-        body: JSON.stringify(newUserDB)
-      });
-
-      if (response.ok) {
-        const createdUsers = await response.json();
-        if (createdUsers && createdUsers.length > 0) {
-          const created = createdUsers[0];
-          const normalized = {
-            ...created,
-            email: created.correo,
-            username: created.correo || created.nombre
-          };
-          this.setCurrentUser(normalized);
-          return normalized;
-        }
-      }
-    } catch (e) {
-      console.warn('Error registrando en Supabase...', e);
-    }
-
-    const localUsers = this.ensureUsers();
-    localUsers.push(newUserDB);
-    localStorage.setItem(this.STORAGE_USERS, JSON.stringify(localUsers));
-    this.setCurrentUser(newUserDB);
-    return newUserDB;
-  }
-
-  async logoutUser() {
-    this.setCurrentUser(null);
-    return true;
-  }
-
-  ensureUsers() {
-    const demoUsers = [
-      { nombre: 'Administrador', username: 'admin', correo: 'admin@lacanasta.com', password: 'admin123' },
-      { nombre: 'María López', username: 'maria', correo: 'maria@lacanasta.com', password: 'maria2025' }
-    ];
-
-    const stored = localStorage.getItem(this.STORAGE_USERS);
-    if (!stored) {
-      localStorage.setItem(this.STORAGE_USERS, JSON.stringify(demoUsers));
-      return demoUsers;
-    }
-
-    try {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length) return parsed;
-    } catch (error) {}
-
-    localStorage.setItem(this.STORAGE_USERS, JSON.stringify(demoUsers));
-    return demoUsers;
-  }
-
-  // --- MÉTODOS AUXILIARES ---
-  fmt(n) {
-    return `S/ ${n.toFixed(2)}`;
-  }
-
-  getCatById() {
-    return Object.fromEntries(this.categories.map((c) => [c.id, c]));
-  }
-
-  getFilteredProducts(filter = this.currentFilter, search = this.searchTerm) {
-    let list = [...this.products];
-    if (filter !== 'todos') {
-      list = list.filter((pr) => pr.categoria === filter);
-    }
-    if (search) {
-      const term = search.toLowerCase();
-      list = list.filter((pr) => {
-        const categoria = this.getCatById()[pr.categoria]?.nombre || '';
-        return pr.nombre.toLowerCase().includes(term) || categoria.toLowerCase().includes(term);
-      });
-    }
-    return list;
-  }
-
-  getOfferProducts() {
-    return this.products.filter((pr) => pr.precioAnterior);
-  }
-
+  // --- Métodos originales de sesión y carrito ---
   clearCart() {
     this.cart = {};
   }
 
-  getHistoryKeyForUser(user = this.getCurrentUser()) {
-    return user ? `${this.STORAGE_HISTORY}_${user.username}` : this.STORAGE_HISTORY;
+  getCurrentUser() {
+    return this.currentUser;
   }
 
-  loadOrderHistory(user = this.getCurrentUser()) {
-    const key = this.getHistoryKeyForUser(user);
-    const raw = localStorage.getItem(key);
-    if (!raw) return [];
-    try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (error) {
-      return [];
+  async loadSession() {
+    const saved = localStorage.getItem(this.STORAGE_SESSION);
+    if (saved) {
+      try {
+        this.currentUser = JSON.parse(saved);
+      } catch (e) {
+        this.currentUser = null;
+      }
+    } else {
+      this.currentUser = null;
     }
   }
 
-  saveOrderHistory(history, user = this.getCurrentUser()) {
-    localStorage.setItem(this.getHistoryKeyForUser(user), JSON.stringify(history));
+  ensureUsers() {
+    const users = localStorage.getItem(this.STORAGE_USERS);
+    if (!users) {
+      const defaultUsers = [{ nombre: 'Usuario Prueba', username: 'admin', email: 'admin@test.com', password: '123' }];
+      localStorage.setItem(this.STORAGE_USERS, JSON.stringify(defaultUsers));
+      return defaultUsers;
+    }
+    return JSON.parse(users);
+  }
+
+  async loginUser(identifier, password) {
+    const users = this.ensureUsers();
+    const user = users.find(u => (u.username === identifier || u.email === identifier) && u.password === password);
+    if (user) {
+      this.currentUser = user;
+      localStorage.setItem(this.STORAGE_SESSION, JSON.stringify(user));
+    }
+    return user;
+  }
+
+  async registerUser(userData) {
+    const users = this.ensureUsers();
+    if (users.find(u => u.username === userData.usernameOrEmail || u.email === userData.email)) {
+      return null; // El usuario ya existe
+    }
+    const newUser = {
+      nombre: userData.nombre,
+      username: userData.usernameOrEmail,
+      email: userData.email,
+      password: userData.password
+    };
+    users.push(newUser);
+    localStorage.setItem(this.STORAGE_USERS, JSON.stringify(users));
+    this.currentUser = newUser;
+    localStorage.setItem(this.STORAGE_SESSION, JSON.stringify(newUser));
+    return newUser;
+  }
+
+  async logoutUser() {
+    this.currentUser = null;
+    localStorage.removeItem(this.STORAGE_SESSION);
   }
 
   getAccountDataMap() {
-    const raw = localStorage.getItem(this.STORAGE_ACCOUNT_DATA);
-    if (!raw) return {};
-    try {
-      const parsed = JSON.parse(raw);
-      return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch (error) {
-      return {};
-    }
+    return JSON.parse(localStorage.getItem(this.STORAGE_ACCOUNTS) || '{}');
   }
 
   saveAccountDataMap(map) {
-    localStorage.setItem(this.STORAGE_ACCOUNT_DATA, JSON.stringify(map));
+    localStorage.setItem(this.STORAGE_ACCOUNTS, JSON.stringify(map));
   }
 
   getAccountDataForCurrentUser() {
-    const user = this.getCurrentUser();
-    if (!user) return null;
+    if (!this.currentUser) return null;
     const map = this.getAccountDataMap();
-    const username = user.username;
-
-    if (!map[username]) {
-      map[username] = {
-        profile: {
-          nombre: user.nombre,
-          username: user.username,
-          email: user.email || user.correo,
-          phone: '',
-          dni: ''
-        },
+    if (!map[this.currentUser.username]) {
+      map[this.currentUser.username] = {
+        profile: { nombre: this.currentUser.nombre, username: this.currentUser.username, email: this.currentUser.email, phone: '', dni: '' },
         addresses: [{ alias: 'Casa', street: '', district: '', city: '', reference: '' }],
-        payments: [{ alias: 'Tarjeta principal', type: 'Visa', number: '', holder: user.nombre }],
-        refunds: { bank: '', account: '', cci: '', holder: user.nombre }
+        payments: [{ alias: 'Tarjeta principal', type: 'Visa', number: '', holder: this.currentUser.nombre }],
+        refunds: { bank: '', account: '', cci: '', holder: '' }
       };
       this.saveAccountDataMap(map);
     }
-
-    return map[username];
+    return map[this.currentUser.username];
   }
 
   saveCurrentUserAccountData(data) {
-    const user = this.getCurrentUser();
-    if (!user || !data) return;
+    if (!this.currentUser) return;
     const map = this.getAccountDataMap();
-    map[user.username] = data;
+    map[this.currentUser.username] = data;
     this.saveAccountDataMap(map);
   }
 
   updateUserSessionFromProfile(profile) {
-    const user = this.getCurrentUser();
-    if (!user || !profile) return;
-    const updated = {
-      ...user,
-      nombre: profile.nombre || user.nombre,
-      username: profile.username || user.username,
-      email: profile.email || user.email || user.correo
-    };
-    localStorage.setItem(this.STORAGE_SESSION, JSON.stringify(updated));
+    if (!this.currentUser) return;
+    this.currentUser.nombre = profile.nombre;
+    this.currentUser.email = profile.email;
+    localStorage.setItem(this.STORAGE_SESSION, JSON.stringify(this.currentUser));
+    const users = this.ensureUsers();
+    const userIndex = users.findIndex(u => u.username === this.currentUser.username);
+    if (userIndex !== -1) {
+      users[userIndex].nombre = profile.nombre;
+      users[userIndex].email = profile.email;
+      localStorage.setItem(this.STORAGE_USERS, JSON.stringify(users));
+    }
+  }
+
+  fmt(price) {
+    return `S/ ${Number(price).toFixed(2)}`;
   }
 }
