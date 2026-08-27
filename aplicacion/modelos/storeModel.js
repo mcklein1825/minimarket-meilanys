@@ -1,6 +1,7 @@
 /*
 Archivo: modelos/storeModel.js
 Proyecto: Minimarket Meilanys
+Autor: MCKLEIN
 */
 export default class StoreModel {
   constructor() {
@@ -10,11 +11,11 @@ export default class StoreModel {
     this.STORAGE_USERS = 'meilanys_users';
     this.STORAGE_SESSION = 'meilanys_session';
     this.STORAGE_ACCOUNTS = 'meilanys_accounts';
-    this.STORAGE_ORDERS = 'meilanys_orders'; // Nuevo: para historial de pedidos
+    this.STORAGE_ORDERS = 'meilanys_orders';
     this.currentUser = null;
   }
 
-  // --- NUEVO: Cargar productos desde Supabase ---
+  // --- Cargar productos desde la BD ---
   async fetchProductsFromDB() {
     try {
       const response = await fetch('../servicios/obtener_productos.php');
@@ -22,23 +23,49 @@ export default class StoreModel {
       
       const data = await response.json();
       
-      if (Array.isArray(data) && data.length > 0) {
-        this.products = data;
-        
-        // Genera las categorías automáticamente
-        const uniqueCats = [...new Set(data.map(p => p.categoria))];
-        this.categories = uniqueCats.map(c => ({ id: c, nombre: c }));
+      // Corregido: 'obtener_productos.php' devuelve { exito: true, productos: [...] }
+      const listaProductos = data.productos || (Array.isArray(data) ? data : []);
+
+      if (listaProductos.length > 0) {
+        this.products = listaProductos;
+
+        // Si no se han cargado categorías explícitas, se autogeneran desde los productos
+        if (this.categories.length === 0) {
+          const uniqueCats = [...new Set(listaProductos.map(p => p.categoria).filter(Boolean))];
+          this.categories = uniqueCats.map(c => ({ id: c, nombre: c, slug: c }));
+        }
       }
     } catch (error) {
       console.error('Error al cargar productos desde la base de datos:', error);
     }
   }
 
-  // --- NUEVO: Guardar historial de pedidos ---
+  // --- Cargar categorías desde la BD ---
+  async fetchCategoriesFromDB() {
+    try {
+      const response = await fetch('../servicios/obtener_categorias.php');
+      if (!response.ok) throw new Error('Error al consultar categorías');
+
+      const data = await response.json();
+
+      if (data.exito && Array.isArray(data.categorias) && data.categorias.length > 0) {
+        this.categories = data.categorias.map(cat => ({
+          id: cat.slug || cat.nombre,
+          nombre: cat.nombre,
+          slug: cat.slug || cat.nombre,
+          icono: cat.icono || ''
+        }));
+      }
+    } catch (error) {
+      console.warn('No se pudieron obtener las categorías dinámicas, usando fallback:', error);
+    }
+  }
+
+  // --- Historial de pedidos ---
   saveOrder(user, order) {
     const historyMap = JSON.parse(localStorage.getItem(this.STORAGE_ORDERS) || '{}');
     if (!historyMap[user.username]) historyMap[user.username] = [];
-    historyMap[user.username].unshift(order); // Coloca el pedido más reciente al inicio
+    historyMap[user.username].unshift(order);
     localStorage.setItem(this.STORAGE_ORDERS, JSON.stringify(historyMap));
   }
 
@@ -48,7 +75,7 @@ export default class StoreModel {
     return historyMap[user.username] || [];
   }
 
-  // --- Métodos originales de sesión y carrito ---
+  // --- Sesión y carrito ---
   clearCart() {
     this.cart = {};
   }
@@ -93,7 +120,7 @@ export default class StoreModel {
   async registerUser(userData) {
     const users = this.ensureUsers();
     if (users.find(u => u.username === userData.usernameOrEmail || u.email === userData.email)) {
-      return null; // El usuario ya existe
+      return null;
     }
     const newUser = {
       nombre: userData.nombre,
