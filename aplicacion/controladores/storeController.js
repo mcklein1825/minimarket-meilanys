@@ -1,14 +1,8 @@
 /*
 Archivo: controllers/storeController.js
-Ruta: c:\xampp\htdocs\Empresa\Paginaweb_v1\controllers\storeController.js
-Proyecto: Empresa / Paginaweb_v1
-Nombre del proyecto: Minimarket Meilanys
+Proyecto: Minimarket Meilanys
 Fecha: 2026-08-24
-Autor: Yo, como responsable del desarrollo, creo y mantengo este archivo.
-Propósito: coordinar la interacción del usuario con el modelo y la vista para control de flujo, autenticación y pagos.
-Tecnologías: JavaScript ES6, fetch, eventos del navegador, asincronía.
-Dependencias: StoreModel, StoreView, crear_preferencia.php.
-Estado: activo y gestionando la lógica principal.
+Propósito: Coordinar la interacción del usuario con el modelo y la vista para control de flujo, autenticación y pagos con Mercado Pago.
 */
 export default class StoreController {
   constructor(model, view) {
@@ -88,7 +82,7 @@ export default class StoreController {
   }
 
   async handleCheckout() {
-    // 1) Validamos que el usuario haya iniciado sesión
+    // 1) Validamos sesión de usuario
     const user = this.model.getCurrentUser();
     if (!user) {
       this.view.showToast('Debes iniciar sesión para pagar');
@@ -96,14 +90,14 @@ export default class StoreController {
       return;
     }
 
-    // 2) Validamos que el carrito tenga productos
+    // 2) Validamos productos en el carrito
     const ids = Object.keys(this.model.cart);
     if (ids.length === 0) {
       this.view.showToast('Tu carrito está vacío todavía');
       return;
     }
 
-    // 3) Preparamos los productos enviándolos correctamente en Soles (PEN) y asegurando tipos de datos
+    // 3) Preparamos los productos en Soles (PEN)
     const items = ids.map((id) => {
       const product = this.model.products.find((pr) => String(pr.id) === String(id));
       if (!product) return null;
@@ -122,30 +116,37 @@ export default class StoreController {
     }
 
     try {
-      // 4) Llamamos al backend para crear la preferencia de pago enviando el correo de forma segura
+      // 4) Petición al backend
       const response = await fetch('../servicios/crear_preferencia.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ 
-        items, 
-        payerEmail: user.email || user.correo 
-      })
-    });
+          items, 
+          payerEmail: user.email || user.correo 
+        })
+      });
 
-      const data = await response.json();
-      
-      // 5) Si Mercado Pago responde con init_point, redirigimos al checkout
+      // 5) Lectura segura de la respuesta para prevenir SyntaxError por HTML
+      const responseText = await response.text();
+      let data;
+
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        throw new Error('El servidor devolvió un error inesperado. Revisa la consola para más detalles.');
+      }
+
+      // 6) Validación de respuesta de Mercado Pago
       if (!response.ok || !data.init_point) {
-        const message = data?.hint || data?.error || 'No se pudo crear la preferencia';
+        const message = data?.error || data?.hint || 'No se pudo crear la preferencia de pago';
         throw new Error(message);
       }
 
-      // 6) Aquí se redirige al usuario al checkout de Mercado Pago
+      // 7) Redirección a la pasarela de Mercado Pago
       window.location.href = data.init_point;
     } catch (error) {
-      // 7) Si algo falla, avisamos al usuario y dejamos la compra sin avanzar
       console.error('Error con Mercado Pago:', error);
       this.view.showToast(error.message || 'No se pudo iniciar el pago. Intenta nuevamente.');
     }
@@ -174,7 +175,6 @@ export default class StoreController {
       return;
     }
 
-    // login
     const user = await this.model.loginUser(identifier, password);
 
     if (!user) {
@@ -199,7 +199,6 @@ export default class StoreController {
     submitBtn.textContent = toRegister ? 'Crear cuenta' : 'Iniciar sesión';
     toggleBtn.textContent = toRegister ? 'Ya tengo cuenta' : 'Crear una cuenta';
 
-    // Show/hide name and email fields
     if (this.view.elements.authName) this.view.elements.authName.closest('.auth-field')?.style && (this.view.elements.authName.closest('.auth-field').style.display = toRegister ? '' : 'none');
     if (this.view.elements.authEmail) this.view.elements.authEmail.closest('.auth-field')?.style && (this.view.elements.authEmail.closest('.auth-field').style.display = toRegister ? '' : 'none');
 
@@ -515,14 +514,11 @@ export default class StoreController {
       this.view.closeAuthModal();
       this.view.closeHistoryModal();
       this.view.closeAccountModal();
-      // Close mobile categories menu if open
       try {
         this.view.elements.header.classList.remove('menu-open');
         catDropdown.classList.remove('open');
         mobileMenuBtn.setAttribute('aria-expanded', 'false');
-      } catch (e) {
-        // If elements are missing, ignore silently
-      }
+      } catch (e) {}
     });
 
     cartOpenBtn.addEventListener('click', this.view.openCart.bind(this.view));
@@ -575,7 +571,6 @@ export default class StoreController {
     });
 
     mobileMenuBtn.addEventListener('click', () => {
-      // Toggle a header-level class so the nav itself can be shown on small screens
       const open = this.view.elements.header.classList.toggle('menu-open');
       catDropdown.classList.toggle('open', open);
       mobileMenuBtn.setAttribute('aria-expanded', open);
