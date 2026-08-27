@@ -3,13 +3,10 @@
 Archivo: crear_preferencia.php
 Ruta: servicios/crear_preferencia.php
 Proyecto: Minimarket Meilanys
+Propósito: Endpoint backend para procesar el carrito y generar la preferencia en Mercado Pago.
 */
 
-// Silenciamos advertencias HTML automáticas de PHP para evitar corruptos en la respuesta JSON
-ini_set('display_errors', '0');
-error_reporting(E_ALL);
-
-// Captura de errores fatales en formato JSON
+// 1. Capturar errores fatales de PHP para responder siempre en JSON válido
 register_shutdown_function(function() {
     $error = error_get_last();
     if ($error !== NULL && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
@@ -18,7 +15,7 @@ register_shutdown_function(function() {
             header('Content-Type: application/json; charset=utf-8');
         }
         echo json_encode([
-            'error' => 'Error crítico en el servidor PHP: ' . $error['message'],
+            'error' => 'Error interno en el servidor PHP: ' . $error['message'],
             'linea' => $error['line'],
             'archivo' => basename($error['file'])
         ]);
@@ -26,50 +23,56 @@ register_shutdown_function(function() {
 });
 
 header('Content-Type: application/json; charset=utf-8');
-
 session_start();
 
-// 1. Verificación del archivo de configuración
+// 2. Carga de configuración global de Mercado Pago
 $configFile = __DIR__ . '/../configuracion/mercado-pago-config.php';
 if (!file_exists($configFile)) {
     http_response_code(500);
-    echo json_encode(['error' => 'No se encontró el archivo mercado-pago-config.php en el servidor.']);
+    echo json_encode(['error' => 'No se encontró el archivo mercado-pago-config.php en la ruta especificada.']);
     exit;
 }
 
 require_once $configFile;
 
-// 2. Validación de método HTTP POST
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['error' => 'Método no permitido. Solo se acepta POST.']);
+// 3. Validar la existencia de la constante MP_ACCESS_TOKEN
+if (!defined('MP_ACCESS_TOKEN') || empty(MP_ACCESS_TOKEN)) {
+    http_response_code(500);
+    echo json_encode(['error' => 'La constante MP_ACCESS_TOKEN no está definida en mercado-pago-config.php.']);
     exit;
 }
 
-// 3. Lectura y validación del cuerpo JSON
+// 4. Validar método HTTP POST
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['error' => 'Método no permitido. Este endpoint requiere peticiones POST.']);
+    exit;
+}
+
+// 5. Leer y procesar datos enviados desde el Frontend
 $input = json_decode(file_get_contents('php://input'), true);
 if (!$input) {
     http_response_code(400);
-    echo json_encode(['error' => 'No se recibieron datos JSON válidos.']);
+    echo json_encode(['error' => 'No se recibieron datos JSON válidos desde el carrito.']);
     exit;
 }
 
-$rawItems = $input['items'] ?? [];
+$rawItems   = $input['items'] ?? [];
 $payerEmail = trim($input['payerEmail'] ?? '');
 
 if (empty($rawItems)) {
     http_response_code(400);
-    echo json_encode(['error' => 'El carrito está vacío.']);
+    echo json_encode(['error' => 'El carrito se encuentra vacío.']);
     exit;
 }
 
 if (empty($payerEmail) || !filter_var($payerEmail, FILTER_VALIDATE_EMAIL)) {
     http_response_code(400);
-    echo json_encode(['error' => 'Debes haber iniciado sesión con un correo válido para procesar el pago.']);
+    echo json_encode(['error' => 'Se requiere un correo electrónico válido para procesar el pago.']);
     exit;
 }
 
-// 4. Formateo de los ítems para la API de Mercado Pago (en PEN)
+// 6. Formatear ítems en Soles Peruanos (PEN)
 $items = [];
 foreach ($rawItems as $item) {
     $items[] = [
@@ -80,7 +83,7 @@ foreach ($rawItems as $item) {
     ];
 }
 
-// 5. Construcción de la preferencia
+// 7. Construcción de la preferencia
 $payload = [
     'items' => $items,
     'payer' => [
@@ -94,9 +97,7 @@ $payload = [
     'auto_return' => 'approved'
 ];
 
-// 6. Solicitud a la API de Mercado Pago vía cURL
-$accessToken = defined('MP_ACCESS_TOKEN') ? MP_ACCESS_TOKEN : '';
-
+// 8. Petición cURL a la API de Mercado Pago
 $ch = curl_init('https://api.mercadopago.com/checkout/preferences');
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
@@ -104,7 +105,7 @@ curl_setopt_array($ch, [
     CURLOPT_POSTFIELDS     => json_encode($payload),
     CURLOPT_HTTPHEADER     => [
         'Content-Type: application/json',
-        'Authorization: Bearer ' . $accessToken
+        'Authorization: Bearer ' . MP_ACCESS_TOKEN
     ]
 ]);
 
@@ -112,13 +113,13 @@ $response = curl_exec($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);
 
-// 7. Verificación del estado de respuesta
+// 9. Manejo de respuesta HTTP
 if ($httpCode < 200 || $httpCode >= 300) {
     http_response_code(400);
     $errorData = json_decode($response, true);
-    $msg = $errorData['message'] ?? 'Error al comunicarse con Mercado Pago.';
+    $mensaje = $errorData['message'] ?? 'Error desconocido al comunicar con Mercado Pago';
     echo json_encode([
-        'error' => 'Error de Mercado Pago: ' . $msg,
+        'error' => 'Error de Mercado Pago: ' . $mensaje,
         'detalle_completo' => $errorData
     ]);
     exit;
@@ -134,7 +135,7 @@ if (empty($data['init_point'])) {
 
 $_SESSION['checkout_started'] = true;
 
+// 10. Devolver URL de redirección al cliente
 echo json_encode([
     'init_point' => $data['init_point']
 ]);
-?>
