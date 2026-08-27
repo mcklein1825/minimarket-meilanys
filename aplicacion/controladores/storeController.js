@@ -123,16 +123,16 @@ export default class StoreController {
 
     try {
       // 4) Llamamos al backend para crear la preferencia de pago enviando el correo de forma segura
-      const response = await fetch('crear_preferencia.php', {
+      const response = await fetch('../servicios/crear_preferencia.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ 
-          items, 
-          payerEmail: user.email || user.correo 
-        })
-      });
+        items, 
+        payerEmail: user.email || user.correo 
+      })
+    });
 
       const data = await response.json();
       
