@@ -4,7 +4,7 @@ Ruta: c:\xampp\htdocs\Empresa\Paginaweb_v1\views\storeView.js
 Proyecto: Empresa / Paginaweb_v1
 Nombre del proyecto: Minimarket Meilanys
 Fecha: 2026-08-24
-Autor: Yo, como responsable del desarrollo, creo y mantengo este archivo.
+Autor: MCKLEIN
 Propósito: renderizar el contenido visual del catálogo, carrito, modales, historial y notificaciones.
 Tecnologías: JavaScript ES6, DOM, template strings.
 Dependencias: StoreModel, StoreController, index.html.
@@ -74,7 +74,7 @@ export default class StoreView {
     const hasDiscount = !!prod.precioAnterior;
     return `
       <article class="product-card" data-id="${prod.id}">
-        <div class="product-card__media"><span>${prod.icono}</span></div>
+        <div class="product-card__media"><span>${prod.icono || '📦'}</span></div>
         <div class="price-tag ${hasDiscount ? 'sale' : ''}">${fmt(prod.precio)}</div>
         <h3 class="product-card__name">${prod.nombre}</h3>
         <span class="product-card__unit">por ${prod.unidad}</span>
@@ -99,14 +99,13 @@ export default class StoreView {
 
   renderCategoryDropdown(categories) {
     this.elements.catDropdown.innerHTML = categories.map((c) =>
-      `<a href="#categorias" data-cat="${c.id}">${c.icono} ${c.nombre}</a>`
+      `<a href="#categorias" data-cat="${c.id}">${c.nombre}</a>`
     ).join('');
   }
 
   renderCategoryGrid(categories, currentFilter) {
     this.elements.categoryGrid.innerHTML = categories.map((c) => `
       <button class="category-card ${currentFilter === c.id ? 'active' : ''}" data-cat="${c.id}">
-        <span class="category-card__stamp">${c.icono}</span>
         <span class="category-card__label">${c.nombre}</span>
       </button>
     `).join('');
@@ -189,7 +188,7 @@ export default class StoreView {
       subtotal += prod.precio * qty;
       return `
         <div class="cart-item" data-cart-id="${id}">
-          <div class="cart-item__media">${prod.icono}</div>
+          <div class="cart-item__media">${prod.icono || '📦'}</div>
           <div>
             <div class="cart-item__name">${prod.nombre}</div>
             <div class="cart-item__price">${fmt(prod.precio)} / ${prod.unidad}</div>
