@@ -1,8 +1,7 @@
 /*
-Archivo: controllers/storeController.js
+Archivo: controladores/storeController.js
 Proyecto: Minimarket Meilanys
-Fecha: 2026-08-24
-Propósito: Coordinar la interacción del usuario con el modelo y la vista para control de flujo, autenticación y pagos con Mercado Pago.
+Autor: MCKLEIN
 */
 export default class StoreController {
   constructor(model, view) {
@@ -11,21 +10,106 @@ export default class StoreController {
     this.currentFilter = 'todos';
     this.searchTerm = '';
     this.toastTimer = null;
+    this.isProcessingCheckout = false;
   }
 
   async init() {
     window.__storeController = this;
+    
+    // 1. Manejo de usuarios y sesión
     this.model.ensureUsers();
     await this.model.loadSession();
+
+    // 2. Cargar catálogo dinámico desde la BD (Supabase / MySQL)
+    await this.model.fetchProductsFromDB();
+    
+    // 3. Inicializar la interfaz y eventos
     this.bindGlobalEvents();
     this.updateUI();
     this.renderEverything();
+
+    // 4. Evaluar si el usuario regresa de Mercado Pago
+    this.handlePaymentReturn();
   }
 
+  // --- LÓGICA RETORNO MERCADO PAGO ---
+  handlePaymentReturn() {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('status');
+    const paymentId = params.get('payment_id');
+    const merchantOrderId = params.get('merchant_order_id');
+
+    if (!status) return;
+
+    if (status === 'success' || status === 'approved') {
+      this.registerSuccessfulOrder(paymentId || merchantOrderId);
+      this.model.clearCart();
+      this.view.renderCart(this.model.cart, this.model.products, this.model.fmt.bind(this.model));
+      this.view.showToast('¡Pago exitoso! Estamos preparando tu pedido 🚚');
+      
+      setTimeout(() => {
+        this.openHistoryIfLoggedIn();
+      }, 1500);
+
+    } else if (status === 'failure' || status === 'rejected') {
+      this.view.showToast('El pago fue rechazado. Intenta con otra tarjeta.');
+    } else if (status === 'pending' || status === 'in_process') {
+      this.view.showToast('Tu pago está en revisión. Te avisaremos pronto.');
+    }
+
+    // Limpia los parámetros de la URL para evitar ejecuciones duplicadas al recargar
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
+  registerSuccessfulOrder(paymentId) {
+    const user = this.model.getCurrentUser();
+    if (!user) return;
+
+    const orderItems = Object.keys(this.model.cart).map(id => {
+      const prod = this.model.products.find(p => String(p.id) === String(id));
+      if (!prod) return null;
+      return {
+        id: prod.id,
+        nombre: prod.nombre,
+        precio: prod.precio,
+        cantidad: this.model.cart[id],
+        subtotal: prod.precio * this.model.cart[id]
+      };
+    }).filter(Boolean);
+
+    if (orderItems.length === 0) return;
+
+    const total = orderItems.reduce((sum, item) => sum + item.subtotal, 0);
+
+    const newOrder = {
+      id_pedido: paymentId || 'MP-' + Math.floor(100000 + Math.random() * 900000),
+      fecha: new Date().toISOString(),
+      estado: 'Pagado - En preparación',
+      total: total,
+      metodo_pago: 'Mercado Pago',
+      items: orderItems
+    };
+
+    if (typeof this.model.saveOrder === 'function') {
+      this.model.saveOrder(user, newOrder);
+    }
+  }
+
+  // --- MÉTODOS DE RENDER Y VISTA ---
   updateUI() {
     const currentUser = this.model.getCurrentUser();
     this.view.updateAccountButton(currentUser);
     this.view.syncCheckoutButton(currentUser);
+    this.updateCartBadge();
+  }
+
+  updateCartBadge() {
+    const totalCount = Object.values(this.model.cart).reduce((sum, q) => sum + q, 0);
+    const cartCountEl = document.getElementById('cartCount');
+    if (cartCountEl) {
+      cartCountEl.textContent = totalCount;
+      cartCountEl.style.display = totalCount > 0 ? 'inline-block' : 'none';
+    }
   }
 
   renderEverything() {
@@ -39,7 +123,11 @@ export default class StoreController {
     this.view.renderCart(this.model.cart, this.model.products, this.model.fmt.bind(this.model));
     this.view.syncCheckoutButton(currentUser);
     this.view.renderFooterCategories(this.model.categories);
-    this.view.renderHistoryModal(this.model.loadOrderHistory(currentUser), this.model.fmt.bind(this.model));
+    this.updateCartBadge();
+    
+    if (typeof this.model.loadOrderHistory === 'function') {
+      this.view.renderHistoryModal(this.model.loadOrderHistory(currentUser), this.model.fmt.bind(this.model));
+    }
   }
 
   setFilter(cat) {
@@ -54,35 +142,59 @@ export default class StoreController {
     this.view.renderProducts(this.model.products, this.currentFilter, this.searchTerm, this.model.fmt.bind(this.model));
   }
 
+  // --- OPERACIONES DE CARRITO ---
   addToCart(id) {
+    const product = this.model.products.find(p => String(p.id) === String(id));
+    if (!product) {
+      this.view.showToast('Producto no encontrado');
+      return;
+    }
+
     this.model.cart[id] = (this.model.cart[id] || 0) + 1;
     this.view.renderCart(this.model.cart, this.model.products, this.model.fmt.bind(this.model));
-    this.view.showToast('Producto agregado al carrito');
+    this.updateCartBadge();
+    this.view.showToast(`${product.nombre} agregado al carrito`);
   }
 
   changeQty(id, delta) {
     if (!this.model.cart[id]) return;
+    
     this.model.cart[id] += delta;
-    if (this.model.cart[id] <= 0) delete this.model.cart[id];
+    if (this.model.cart[id] <= 0) {
+      delete this.model.cart[id];
+    }
+    
     this.view.renderCart(this.model.cart, this.model.products, this.model.fmt.bind(this.model));
+    this.updateCartBadge();
   }
 
   removeItem(id) {
-    const cartItem = this.view.elements.cartItems.querySelector(`[data-cart-id="${id}"]`);
+    const cartItem = this.view.elements.cartItems?.querySelector(`[data-cart-id="${id}"]`);
     if (cartItem) {
       cartItem.classList.add('removing');
       setTimeout(() => {
         delete this.model.cart[id];
         this.view.renderCart(this.model.cart, this.model.products, this.model.fmt.bind(this.model));
+        this.updateCartBadge();
       }, 260);
       return;
     }
     delete this.model.cart[id];
     this.view.renderCart(this.model.cart, this.model.products, this.model.fmt.bind(this.model));
+    this.updateCartBadge();
   }
 
+  clearFullCart() {
+    this.model.clearCart();
+    this.view.renderCart(this.model.cart, this.model.products, this.model.fmt.bind(this.model));
+    this.updateCartBadge();
+    this.view.showToast('El carrito se ha vaciado');
+  }
+
+  // --- PASARELA DE PAGO MERCADO PAGO ---
   async handleCheckout() {
-    // 1) Validamos sesión de usuario
+    if (this.isProcessingCheckout) return;
+
     const user = this.model.getCurrentUser();
     if (!user) {
       this.view.showToast('Debes iniciar sesión para pagar');
@@ -90,119 +202,118 @@ export default class StoreController {
       return;
     }
 
-    // 2) Validamos productos en el carrito
     const ids = Object.keys(this.model.cart);
     if (ids.length === 0) {
       this.view.showToast('Tu carrito está vacío todavía');
       return;
     }
 
-    // 3) Preparamos los productos en Soles (PEN)
     const items = ids.map((id) => {
       const product = this.model.products.find((pr) => String(pr.id) === String(id));
       if (!product) return null;
-      const qty = this.model.cart[id];
       return {
         title: product.nombre,
-        quantity: Number(qty),
+        quantity: Number(this.model.cart[id]),
         unit_price: Number(product.precio),
         currency_id: 'PEN'
       };
     }).filter(Boolean);
 
-    if (items.length === 0) {
-      this.view.showToast('No se pudieron procesar los productos del carrito');
-      return;
-    }
-
     try {
-      // 4) Petición al backend
+      this.isProcessingCheckout = true;
+      this.view.showToast('Generando pasarela de pago...');
+
       const response = await fetch('../servicios/crear_preferencia.php', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ 
-          items, 
-          payerEmail: user.email || user.correo 
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items, payerEmail: user.email || user.correo })
       });
 
-      // 5) Lectura segura de la respuesta para prevenir SyntaxError por HTML
       const responseText = await response.text();
       let data;
-
       try {
         data = JSON.parse(responseText);
       } catch (e) {
-        throw new Error('El servidor devolvió un error inesperado. Revisa la consola para más detalles.');
+        throw new Error('Respuesta inválida del servidor PHP de pagos.');
       }
 
-      // 6) Validación de respuesta de Mercado Pago
       if (!response.ok || !data.init_point) {
-        const message = data?.error || data?.hint || 'No se pudo crear la preferencia de pago';
-        throw new Error(message);
+        throw new Error(data?.error || 'No se pudo obtener el enlace de pago.');
       }
 
-      // 7) Redirección a la pasarela de Mercado Pago
       window.location.href = data.init_point;
     } catch (error) {
-      console.error('Error con Mercado Pago:', error);
-      this.view.showToast(error.message || 'No se pudo iniciar el pago. Intenta nuevamente.');
+      console.error('Error Checkout:', error);
+      this.view.showToast(error.message || 'Error al conectar con la pasarela de pago.');
+    } finally {
+      this.isProcessingCheckout = false;
     }
   }
 
+  // --- AUTENTICACIÓN Y SESIÓN ---
   async handleAuthSubmit(event) {
     event.preventDefault();
     const isRegister = (this.view.elements.authTitle?.textContent || '').trim() === 'Crear cuenta';
-    const identifier = this.view.elements.authIdentifier.value.trim();
-    const password = this.view.elements.authPassword.value;
+    const identifier = this.view.elements.authIdentifier?.value.trim() || '';
+    const password = this.view.elements.authPassword?.value || '';
+
+    if (!identifier || !password) {
+      this.view.showToast('Por favor completa todos los campos.');
+      return;
+    }
 
     if (isRegister) {
       const nombre = (this.view.elements.authName?.value || '').trim();
       const email = (this.view.elements.authEmail?.value || '').trim();
-      const user = await this.model.registerUser({ nombre, usernameOrEmail: identifier, email, password });
 
-      if (!user) {
-        this.view.showToast('No se pudo crear la cuenta. Usa otro usuario o email.');
+      if (!nombre || !email) {
+        this.view.showToast('Por favor ingresa tu nombre y correo.');
         return;
       }
 
+      const user = await this.model.registerUser({ nombre, usernameOrEmail: identifier, email, password });
+
+      if (!user) {
+        this.view.showToast('Error: El usuario o correo ya está registrado.');
+        return;
+      }
+      
       this.view.closeAuthModal();
       this.view.elements.authForm.reset();
       this.updateUI();
-      this.view.showToast(`Cuenta creada. Bienvenido ${user.nombre}`);
+      this.view.showToast(`Bienvenido ${user.nombre}`);
       return;
     }
 
     const user = await this.model.loginUser(identifier, password);
-
     if (!user) {
-      this.view.showToast('Credenciales incorrectas. Intenta otra vez');
+      this.view.showToast('Credenciales incorrectas');
       return;
     }
 
     this.view.closeAuthModal();
     this.view.elements.authForm.reset();
     this.updateUI();
-    this.view.showToast(`Bienvenido ${user.nombre}`);
+    this.view.showToast(`Hola de nuevo, ${user.nombre}`);
   }
 
   toggleAuthMode() {
     const title = this.view.elements.authTitle;
     const toggleBtn = this.view.elements.authToggleMode;
     const submitBtn = document.querySelector('#authForm .btn--primary');
+    if (!title) return;
+
     const isLogin = title.textContent.trim() === 'Iniciar sesión';
-    const toRegister = isLogin;
 
-    title.textContent = toRegister ? 'Crear cuenta' : 'Iniciar sesión';
-    submitBtn.textContent = toRegister ? 'Crear cuenta' : 'Iniciar sesión';
-    toggleBtn.textContent = toRegister ? 'Ya tengo cuenta' : 'Crear una cuenta';
+    title.textContent = isLogin ? 'Crear cuenta' : 'Iniciar sesión';
+    if (submitBtn) submitBtn.textContent = isLogin ? 'Crear cuenta' : 'Iniciar sesión';
+    if (toggleBtn) toggleBtn.textContent = isLogin ? 'Ya tengo cuenta' : 'Crear una cuenta';
 
-    if (this.view.elements.authName) this.view.elements.authName.closest('.auth-field')?.style && (this.view.elements.authName.closest('.auth-field').style.display = toRegister ? '' : 'none');
-    if (this.view.elements.authEmail) this.view.elements.authEmail.closest('.auth-field')?.style && (this.view.elements.authEmail.closest('.auth-field').style.display = toRegister ? '' : 'none');
+    const nameField = this.view.elements.authName?.closest('.auth-field');
+    const emailField = this.view.elements.authEmail?.closest('.auth-field');
 
-    this.view.showToast(toRegister ? 'Completa los datos para crear tu cuenta' : 'Puedes iniciar sesión con usuarios de prueba');
+    if (nameField) nameField.style.display = isLogin ? 'block' : 'none';
+    if (emailField) emailField.style.display = isLogin ? 'block' : 'none';
   }
 
   async handleLogout() {
@@ -217,13 +328,16 @@ export default class StoreController {
     const user = this.model.getCurrentUser();
     if (!user) {
       this.view.openAuthModal();
-      this.view.showToast('Inicia sesión para ver tu historial');
+      this.view.showToast('Inicia sesión para ver tus compras');
       return;
     }
-    this.view.renderHistoryModal(this.model.loadOrderHistory(user), this.model.fmt.bind(this.model));
+    if (typeof this.model.loadOrderHistory === 'function') {
+      this.view.renderHistoryModal(this.model.loadOrderHistory(user), this.model.fmt.bind(this.model));
+    }
     this.view.openHistoryModal();
   }
 
+  // --- PANEL DE CUENTA Y SUB-PANFILES ---
   handleAccountOpen() {
     const user = this.model.getCurrentUser();
     if (!user) {
@@ -236,316 +350,278 @@ export default class StoreController {
 
   handleAccountMenu(panel) {
     const user = this.model.getCurrentUser();
+    if (!user) return;
     this.view.renderAccountPanel(user, panel, this.model.getAccountDataForCurrentUser());
   }
 
-  saveAccountForm(event) {
-    const form = event.target.closest('form[data-form]');
-    if (!form) return;
-    event.preventDefault();
+  handleProfileSave(e) {
+    e.preventDefault();
     const data = this.model.getAccountDataForCurrentUser();
-    const formType = form.dataset.form;
+    if (!data) return;
 
-    if (formType === 'profile') {
-      const formData = new FormData(form);
-      data.profile = {
-        nombre: formData.get('nombre')?.toString().trim() || '',
-        username: formData.get('username')?.toString().trim() || '',
-        email: formData.get('email')?.toString().trim() || '',
-        phone: formData.get('phone')?.toString().trim() || '',
-        dni: formData.get('dni')?.toString().trim() || ''
-      };
-      this.model.saveCurrentUserAccountData(data);
-      this.model.updateUserSessionFromProfile(data.profile);
-      this.updateUI();
-      this.view.showToast('Datos personales guardados');
+    const nombre = document.getElementById('accName')?.value.trim();
+    const email = document.getElementById('accEmail')?.value.trim();
+    const phone = document.getElementById('accPhone')?.value.trim();
+    const dni = document.getElementById('accDni')?.value.trim();
+
+    if (!nombre || !email) {
+      this.view.showToast('Nombre y Email son obligatorios');
       return;
     }
 
-    if (formType === 'addresses') {
-      const formData = new FormData(form);
-      const entries = Object.keys(Object.fromEntries(formData.entries())).filter((key) => key.startsWith('addressAlias_'));
-      const addresses = entries.map((key) => {
-        const index = key.replace('addressAlias_', '');
-        return {
-          alias: formData.get(`addressAlias_${index}`)?.toString().trim() || 'Dirección',
-          street: formData.get(`addressStreet_${index}`)?.toString().trim() || '',
-          district: formData.get(`addressDistrict_${index}`)?.toString().trim() || '',
-          city: formData.get(`addressCity_${index}`)?.toString().trim() || '',
-          reference: formData.get(`addressReference_${index}`)?.toString().trim() || ''
-        };
-      });
-      data.addresses = addresses.filter((item) => item.street || item.district || item.city || item.reference || item.alias);
-      this.model.saveCurrentUserAccountData(data);
-      this.view.showToast('Direcciones guardadas');
-      return;
-    }
+    data.profile = {
+      ...data.profile,
+      nombre: nombre || data.profile.nombre,
+      email: email || data.profile.email,
+      phone: phone || '',
+      dni: dni || ''
+    };
 
-    if (formType === 'payments') {
-      const formData = new FormData(form);
-      const entries = Object.keys(Object.fromEntries(formData.entries())).filter((key) => key.startsWith('paymentAlias_'));
-      const payments = entries.map((key) => {
-        const index = key.replace('paymentAlias_', '');
-        return {
-          alias: formData.get(`paymentAlias_${index}`)?.toString().trim() || 'Medio de pago',
-          type: formData.get(`paymentType_${index}`)?.toString().trim() || '',
-          number: formData.get(`paymentNumber_${index}`)?.toString().trim() || '',
-          holder: formData.get(`paymentHolder_${index}`)?.toString().trim() || ''
-        };
-      });
-      data.payments = payments.filter((item) => item.number || item.type || item.alias || item.holder);
-      this.model.saveCurrentUserAccountData(data);
-      this.view.showToast('Medios de pago guardados');
-      return;
-    }
-
-    if (formType === 'refunds') {
-      const formData = new FormData(form);
-      data.refunds = {
-        bank: formData.get('bank')?.toString().trim() || '',
-        account: formData.get('account')?.toString().trim() || '',
-        cci: formData.get('cci')?.toString().trim() || '',
-        holder: formData.get('holder')?.toString().trim() || ''
-      };
-      this.model.saveCurrentUserAccountData(data);
-      this.view.showToast('Datos de reembolso guardados');
-      return;
-    }
-
-    if (formType === 'security') {
-      const formData = new FormData(form);
-      const currentPassword = formData.get('currentPassword')?.toString() || '';
-      const newPassword = formData.get('newPassword')?.toString() || '';
-      const confirmPassword = formData.get('confirmPassword')?.toString() || '';
-      const users = this.model.ensureUsers();
-      const currentUser = this.model.getCurrentUser();
-      const userRecord = users.find((u) => u.username === currentUser.username || u.email === currentUser.email);
-
-      if (!userRecord || userRecord.password !== currentPassword) {
-        this.view.showToast('La contraseña actual es incorrecta');
-        return;
-      }
-      if (!newPassword || newPassword !== confirmPassword) {
-        this.view.showToast('La nueva contraseña no coincide');
-        return;
-      }
-
-      userRecord.password = newPassword;
-      localStorage.setItem(this.model.STORAGE_USERS, JSON.stringify(users));
-      this.view.showToast('Contraseña actualizada');
-      form.reset();
-    }
+    this.model.saveCurrentUserAccountData(data);
+    this.model.updateUserSessionFromProfile(data.profile);
+    this.updateUI();
+    this.view.showToast('Perfil actualizado con éxito');
   }
 
-  handleAccountAction(event) {
-    const actionButton = event.target.closest('[data-action]');
-    if (!actionButton) return;
+  handleAddressSave(e) {
+    e.preventDefault();
+    const data = this.model.getAccountDataForCurrentUser();
+    if (!data) return;
 
-    if (actionButton.dataset.action === 'add-address') {
-      const data = this.model.getAccountDataForCurrentUser();
-      data.addresses.push({ alias: 'Nueva dirección', street: '', district: '', city: '', reference: '' });
-      this.model.saveCurrentUserAccountData(data);
-      this.handleAccountMenu('addresses');
+    const alias = document.getElementById('addrAlias')?.value.trim() || 'Dirección Principal';
+    const street = document.getElementById('addrStreet')?.value.trim() || '';
+    const district = document.getElementById('addrDistrict')?.value.trim() || '';
+    const city = document.getElementById('addrCity')?.value.trim() || 'Lima';
+    const reference = document.getElementById('addrRef')?.value.trim() || '';
+
+    if (!street || !district) {
+      this.view.showToast('Ingresa la calle y el distrito');
       return;
     }
 
-    if (actionButton.dataset.action === 'add-payment') {
-      const data = this.model.getAccountDataForCurrentUser();
-      data.payments.push({ alias: 'Nuevo medio', type: '', number: '', holder: this.model.getCurrentUser().nombre });
-      this.model.saveCurrentUserAccountData(data);
-      this.handleAccountMenu('payments');
-      return;
-    }
+    data.addresses = [{ alias, street, district, city, reference }];
 
-    if (actionButton.dataset.action === 'delete-account') {
-      const shouldDelete = window.confirm('¿Seguro que quieres eliminar tu cuenta? Esta acción no se puede deshacer.');
-      if (!shouldDelete) return;
-      const currentUser = this.model.getCurrentUser();
-      const users = this.model.ensureUsers().filter((u) => u.username !== currentUser.username);
-      localStorage.setItem(this.model.STORAGE_USERS, JSON.stringify(users));
-      const map = this.model.getAccountDataMap();
-      delete map[currentUser.username];
-      this.model.saveAccountDataMap(map);
-      localStorage.removeItem(this.model.STORAGE_SESSION);
-      this.model.clearCart();
-      this.view.renderCart(this.model.cart, this.model.products, this.model.fmt.bind(this.model));
-      this.view.syncCheckoutButton(this.model.getCurrentUser());
-      this.view.closeAccountModal();
-      this.view.showToast('Cuenta eliminada');
-      this.view.updateAccountButton(this.model.getCurrentUser());
-      return;
-    }
-
-    if (actionButton.dataset.action === 'delete-address') {
-      const index = Number(actionButton.dataset.index);
-      const data = this.model.getAccountDataForCurrentUser();
-      data.addresses.splice(index, 1);
-      if (!data.addresses.length) data.addresses = [{ alias: 'Casa', street: '', district: '', city: '', reference: '' }];
-      this.model.saveCurrentUserAccountData(data);
-      this.handleAccountMenu('addresses');
-      return;
-    }
-
-    if (actionButton.dataset.action === 'delete-payment') {
-      const index = Number(actionButton.dataset.index);
-      const data = this.model.getAccountDataForCurrentUser();
-      data.payments.splice(index, 1);
-      if (!data.payments.length) data.payments = [{ alias: 'Tarjeta principal', type: 'Visa', number: '', holder: this.model.getCurrentUser().nombre }];
-      this.model.saveCurrentUserAccountData(data);
-      this.handleAccountMenu('payments');
-    }
+    this.model.saveCurrentUserAccountData(data);
+    this.view.showToast('Dirección guardada correctamente');
   }
 
+  handlePaymentMethodSave(e) {
+    e.preventDefault();
+    const data = this.model.getAccountDataForCurrentUser();
+    if (!data) return;
+
+    const alias = document.getElementById('payAlias')?.value.trim() || 'Mi Tarjeta';
+    const type = document.getElementById('payType')?.value || 'Visa';
+    const number = document.getElementById('payNumber')?.value.trim() || '';
+    const holder = document.getElementById('payHolder')?.value.trim() || '';
+
+    if (!number || number.length < 15) {
+      this.view.showToast('Número de tarjeta no válido');
+      return;
+    }
+
+    const maskedNumber = '**** **** **** ' + number.slice(-4);
+
+    data.payments = [{ alias, type, number: maskedNumber, holder }];
+
+    this.model.saveCurrentUserAccountData(data);
+    this.view.showToast('Método de pago guardado');
+  }
+
+  handleRefundSave(e) {
+    e.preventDefault();
+    const data = this.model.getAccountDataForCurrentUser();
+    if (!data) return;
+
+    const bank = document.getElementById('refBank')?.value || '';
+    const account = document.getElementById('refAccount')?.value.trim() || '';
+    const cci = document.getElementById('refCci')?.value.trim() || '';
+    const holder = document.getElementById('refHolder')?.value.trim() || '';
+
+    if (!bank || !account) {
+      this.view.showToast('Selecciona un banco e ingresa la cuenta');
+      return;
+    }
+
+    data.refunds = { bank, account, cci, holder };
+
+    this.model.saveCurrentUserAccountData(data);
+    this.view.showToast('Datos de reembolso guardados');
+  }
+
+  // --- EVENTOS GLOBALES DE LA INTERFAZ ---
   bindGlobalEvents() {
     const {
-      catToggle,
-      catDropdown,
-      categoryGrid,
-      filterTabs,
-      cartItems,
-      cartDrawer,
-      overlay,
-      authForm,
-      authToggleButton,
-      footerCategories,
-      accountBtn,
-      accountPanel,
-      accountLogoutBtn,
-      accountClose,
-      authClose,
-      deliveryOpenBtn,
-      deliveryClose,
-      deliveryConfirm,
-      cartOpenBtn,
-      cartCloseBtn,
-      checkoutBtn,
-      historyClose,
-      listasBtn,
-      mobileMenuBtn,
-      headerSearch,
-      catalogSearch,
-      headerSearchBtn,
-      deliveryModal
+      catToggle, catDropdown, categoryGrid, filterTabs, cartItems, overlay,
+      authForm, accountBtn, cartOpenBtn, cartCloseBtn,
+      deliveryOpenBtn, deliveryClose, deliveryConfirm, historyClose, listasBtn,
+      mobileMenuBtn, catalogSearch, headerSearch, headerSearchBtn
     } = this.view.elements;
 
-    catToggle.addEventListener('click', () => {
-      const open = catDropdown.classList.toggle('open');
-      catToggle.setAttribute('aria-expanded', open);
-    });
+    // Desplegable de Categorías
+    if (catToggle && catDropdown) {
+      catToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        catDropdown.classList.toggle('open');
+      });
 
-    document.addEventListener('click', (event) => {
-      if (!event.target.closest('.categories-nav')) {
+      catDropdown.addEventListener('click', (e) => {
+        const anchor = e.target.closest('[data-cat]');
+        if (!anchor) return;
+        e.preventDefault();
+        this.setFilter(anchor.dataset.cat);
         catDropdown.classList.remove('open');
-        catToggle.setAttribute('aria-expanded', 'false');
-      }
+        const section = document.getElementById('catalogo');
+        if (section) section.scrollIntoView({ behavior: 'smooth' });
+      });
+    }
+
+    // Grid de Categorías
+    if (categoryGrid) {
+      categoryGrid.addEventListener('click', (e) => {
+        const btn = e.target.closest('.category-card');
+        if (btn) {
+          this.setFilter(btn.dataset.cat);
+          const section = document.getElementById('catalogo');
+          if (section) section.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+    }
+
+    // Pestañas de Filtro
+    if (filterTabs) {
+      filterTabs.addEventListener('click', (e) => {
+        const btn = e.target.closest('.filter-tab');
+        if (btn) this.setFilter(btn.dataset.cat);
+      });
+    }
+
+    // Búsqueda en catálogo e historia de cabecera
+    document.addEventListener('input', (e) => {
+      if (e.target === catalogSearch) this.setSearch(e.target.value);
+      if (e.target === headerSearch) this.searchTerm = e.target.value.trim();
     });
 
-    catDropdown.addEventListener('click', (event) => {
-      const anchor = event.target.closest('[data-cat]');
-      if (!anchor) return;
-      event.preventDefault();
-      this.currentFilter = anchor.dataset.cat;
-      this.setFilter(this.currentFilter);
-      document.getElementById('catalogo').scrollIntoView({ behavior: 'smooth' });
-      catDropdown.classList.remove('open');
-    });
-
-    categoryGrid.addEventListener('click', (event) => {
-      const btn = event.target.closest('.category-card');
-      if (!btn) return;
-      this.setFilter(btn.dataset.cat);
-      document.getElementById('catalogo').scrollIntoView({ behavior: 'smooth' });
-    });
-
-    filterTabs.addEventListener('click', (event) => {
-      const btn = event.target.closest('.filter-tab');
-      if (!btn) return;
-      this.setFilter(btn.dataset.cat);
-    });
-
-    document.addEventListener('input', (event) => {
-      if (event.target === catalogSearch) {
-        this.setSearch(event.target.value);
-      }
-      if (event.target === headerSearch) {
-        this.searchTerm = event.target.value.trim();
-      }
-    });
-
-    headerSearchBtn.addEventListener('click', () => {
-      this.view.elements.catalogSearch.value = this.searchTerm;
-      this.setFilter('todos');
-      document.getElementById('catalogo').scrollIntoView({ behavior: 'smooth' });
-    });
-
-    headerSearch.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
-        this.view.elements.catalogSearch.value = this.searchTerm;
+    if (headerSearchBtn) {
+      headerSearchBtn.addEventListener('click', () => {
+        if (catalogSearch) catalogSearch.value = this.searchTerm;
         this.setFilter('todos');
-        document.getElementById('catalogo').scrollIntoView({ behavior: 'smooth' });
-      }
-    });
+        const section = document.getElementById('catalogo');
+        if (section) section.scrollIntoView({ behavior: 'smooth' });
+      });
+    }
 
-    document.addEventListener('click', (event) => {
-      const btn = event.target.closest('.add-btn');
+    if (headerSearch) {
+      headerSearch.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          if (catalogSearch) catalogSearch.value = this.searchTerm;
+          this.setFilter('todos');
+          const section = document.getElementById('catalogo');
+          if (section) section.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+    }
+
+    // Botón Agregar al Carrito
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.add-btn');
       if (!btn) return;
-      this.addToCart(Number(btn.dataset.id));
+      
+      const productId = Number(btn.dataset.id);
+      if (isNaN(productId)) return;
+
+      this.addToCart(productId);
       btn.classList.add('added');
-      const original = btn.textContent;
+      const originalText = btn.textContent;
       btn.textContent = 'Agregado';
-      setTimeout(() => {
-        btn.classList.remove('added');
-        btn.textContent = original;
+      setTimeout(() => { 
+        btn.classList.remove('added'); 
+        btn.textContent = originalText; 
       }, 900);
     });
 
-    cartItems.addEventListener('click', (event) => {
-      const btn = event.target.closest('button[data-action]');
-      if (!btn) return;
-      const id = Number(btn.dataset.id);
-      if (btn.dataset.action === 'inc') this.changeQty(id, 1);
-      if (btn.dataset.action === 'dec') this.changeQty(id, -1);
-      if (btn.dataset.action === 'remove') this.removeItem(id);
-    });
+    // Modificación de cantidades y remoción en el carrito
+    if (cartItems) {
+      cartItems.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const id = Number(btn.dataset.id);
+        if (isNaN(id)) return;
 
-    overlay.addEventListener('click', () => {
-      this.view.closeCart();
-      this.view.closeDeliveryModal();
-      this.view.closeAuthModal();
-      this.view.closeHistoryModal();
-      this.view.closeAccountModal();
-      try {
-        this.view.elements.header.classList.remove('menu-open');
-        catDropdown.classList.remove('open');
-        mobileMenuBtn.setAttribute('aria-expanded', 'false');
-      } catch (e) {}
-    });
+        if (btn.dataset.action === 'inc') this.changeQty(id, 1);
+        if (btn.dataset.action === 'dec') this.changeQty(id, -1);
+        if (btn.dataset.action === 'remove') this.removeItem(id);
+      });
+    }
 
-    cartOpenBtn.addEventListener('click', this.view.openCart.bind(this.view));
-    cartCloseBtn.addEventListener('click', this.view.closeCart.bind(this.view));
-    document.getElementById('checkoutBtn').addEventListener('click', () => this.handleCheckout());
+    // Botón Vaciar Carrito
+    const clearCartBtn = document.getElementById('clearCartBtn');
+    if (clearCartBtn) {
+      clearCartBtn.addEventListener('click', () => this.clearFullCart());
+    }
 
-    deliveryOpenBtn.addEventListener('click', this.view.openDeliveryModal.bind(this.view));
-    deliveryClose.addEventListener('click', this.view.closeDeliveryModal.bind(this.view));
-    deliveryConfirm.addEventListener('click', () => {
-      const choice = document.querySelector('input[name="delivery"]:checked').value;
-      this.view.closeDeliveryModal();
-      this.view.showToast(choice === 'domicilio' ? 'Entrega a domicilio seleccionada' : 'Recojo en tienda seleccionado');
-    });
+    // Overlay y Cierre de Modales
+    if (overlay) {
+      overlay.addEventListener('click', () => {
+        this.view.closeCart();
+        this.view.closeDeliveryModal();
+        this.view.closeAuthModal();
+        this.view.closeHistoryModal();
+        this.view.closeAccountModal();
+        if (catDropdown) catDropdown.classList.remove('open');
+      });
+    }
 
-    authForm.addEventListener('submit', (event) => this.handleAuthSubmit(event));
-    document.getElementById('authClose').addEventListener('click', this.view.closeAuthModal.bind(this.view));
-    document.getElementById('authToggleMode').addEventListener('click', () => this.toggleAuthMode());
+    // Abrir/Cerrar Carrito
+    if (cartOpenBtn) cartOpenBtn.addEventListener('click', this.view.openCart.bind(this.view));
+    if (cartCloseBtn) cartCloseBtn.addEventListener('click', this.view.closeCart.bind(this.view));
+    
+    // Finalizar Compra
+    const checkoutBtn = document.getElementById('checkoutBtn');
+    if (checkoutBtn) checkoutBtn.addEventListener('click', () => this.handleCheckout());
 
-    listasBtn.addEventListener('click', () => this.openHistoryIfLoggedIn());
-    accountBtn.addEventListener('click', () => this.handleAccountOpen());
-    document.getElementById('accountLogoutBtn').addEventListener('click', () => {
-      this.handleLogout();
-      this.view.closeAccountModal();
-    });
-    document.getElementById('accountClose').addEventListener('click', this.view.closeAccountModal.bind(this.view));
-    document.getElementById('historyClose').addEventListener('click', this.view.closeHistoryModal.bind(this.view));
+    // Modal de Ubicación de Entrega
+    if (deliveryOpenBtn) deliveryOpenBtn.addEventListener('click', this.view.openDeliveryModal.bind(this.view));
+    if (deliveryClose) deliveryClose.addEventListener('click', this.view.closeDeliveryModal.bind(this.view));
+    if (deliveryConfirm) {
+      deliveryConfirm.addEventListener('click', () => {
+        const dist = document.getElementById('districtSelect')?.value;
+        if (dist) {
+          if (this.view.elements.deliverySummary) {
+            this.view.elements.deliverySummary.textContent = `Entrega en ${dist}`;
+          }
+          this.view.closeDeliveryModal();
+          this.view.showToast(`Zona de entrega configurada para ${dist}`);
+        }
+      });
+    }
 
+    // Autenticación
+    if (authForm) authForm.addEventListener('submit', (e) => this.handleAuthSubmit(e));
+    
+    const authClose = document.getElementById('authClose');
+    if (authClose) authClose.addEventListener('click', this.view.closeAuthModal.bind(this.view));
+    
+    const authToggleMode = document.getElementById('authToggleMode');
+    if (authToggleMode) authToggleMode.addEventListener('click', () => this.toggleAuthMode());
+
+    // Historial, Cuenta y Sesión
+    if (listasBtn) listasBtn.addEventListener('click', () => this.openHistoryIfLoggedIn());
+    if (accountBtn) accountBtn.addEventListener('click', () => this.handleAccountOpen());
+    
+    const accountLogoutBtn = document.getElementById('accountLogoutBtn');
+    if (accountLogoutBtn) {
+      accountLogoutBtn.addEventListener('click', () => {
+        this.handleLogout();
+        this.view.closeAccountModal();
+      });
+    }
+
+    const accountClose = document.getElementById('accountClose');
+    if (accountClose) accountClose.addEventListener('click', this.view.closeAccountModal.bind(this.view));
+    if (historyClose) historyClose.addEventListener('click', this.view.closeHistoryModal.bind(this.view));
+
+    // Menú Lateral del Panel de Usuario
     document.querySelectorAll('.account-menu__item').forEach((btn) => {
       btn.addEventListener('click', () => {
         const panel = btn.dataset.accountPanel;
@@ -553,84 +629,27 @@ export default class StoreController {
       });
     });
 
-    accountPanel.addEventListener('submit', (event) => this.saveAccountForm(event));
-    accountPanel.addEventListener('click', (event) => this.handleAccountAction(event));
-
-    document.getElementById('newsletterForm').addEventListener('submit', (event) => {
-      event.preventDefault();
-      document.getElementById('newsletterSuccess').hidden = false;
-      document.getElementById('newsletterEmail').value = '';
+    // Envio dinámico de Sub-Formularios en el Panel de Cuenta
+    document.addEventListener('submit', (e) => {
+      if (e.target.id === 'profileForm') this.handleProfileSave(e);
+      if (e.target.id === 'addressForm') this.handleAddressSave(e);
+      if (e.target.id === 'paymentForm') this.handlePaymentMethodSave(e);
+      if (e.target.id === 'refundForm') this.handleRefundSave(e);
     });
 
-    footerCategories.addEventListener('click', (event) => {
-      const anchor = event.target.closest('.footer-cat-link');
-      if (!anchor) return;
-      event.preventDefault();
-      this.setFilter(anchor.dataset.cat);
-      document.getElementById('catalogo').scrollIntoView({ behavior: 'smooth' });
-    });
-
-    mobileMenuBtn.addEventListener('click', () => {
-      const open = this.view.elements.header.classList.toggle('menu-open');
-      catDropdown.classList.toggle('open', open);
-      mobileMenuBtn.setAttribute('aria-expanded', open);
-    });
-
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach((en) => {
-        if (en.isIntersecting) {
-          en.target.classList.add('in-view');
-          io.unobserve(en.target);
-        }
+    // Menú Adaptativo Móvil
+    if (mobileMenuBtn) {
+      mobileMenuBtn.addEventListener('click', () => {
+        const nav = document.querySelector('.nav-main');
+        if (nav) nav.classList.toggle('active');
       });
-    }, { threshold: 0.15 });
+    }
 
-    document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
-
-    const countdownEl = document.getElementById('countdownTime');
-    const target = Date.now() + (2 * 24 * 60 * 60 * 1000 + 14 * 60 * 60 * 1000);
-    const tickCountdown = () => {
-      const diff = Math.max(0, target - Date.now());
-      const d = Math.floor(diff / 86400000);
-      const h = Math.floor((diff % 86400000) / 3600000);
-      const m = Math.floor((diff % 3600000) / 60000);
-      const s = Math.floor((diff % 60000) / 1000);
-      const pad = (n) => String(n).padStart(2, '0');
-      countdownEl.innerHTML = `${d}d ${pad(h)}<span class="colon">:</span>${pad(m)}<span class="colon">:</span>${pad(s)}`;
-    };
-    tickCountdown();
-    setInterval(tickCountdown, 1000);
-
-    const slides = Array.from(document.querySelectorAll('.slide'));
-    const dotsWrap = document.getElementById('carouselDots');
-    let slideIndex = 0;
-    let carouselTimer = null;
-
-    dotsWrap.innerHTML = slides.map((_, i) => `<button data-i="${i}" class="${i === 0 ? 'active' : ''}" aria-label="Ir a la diapositiva ${i + 1}"></button>`).join('');
-
-    const goToSlide = (i) => {
-      slides[slideIndex].classList.remove('active');
-      dotsWrap.children[slideIndex].classList.remove('active');
-      slideIndex = (i + slides.length) % slides.length;
-      slides[slideIndex].classList.add('active');
-      dotsWrap.children[slideIndex].classList.add('active');
-    };
-    const nextSlide = () => goToSlide(slideIndex + 1);
-    const prevSlide = () => goToSlide(slideIndex - 1);
-    const startCarousel = () => { carouselTimer = setInterval(nextSlide, 5000); };
-    const stopCarousel = () => clearInterval(carouselTimer);
-
-    document.getElementById('carouselNext').addEventListener('click', () => { nextSlide(); stopCarousel(); startCarousel(); });
-    document.getElementById('carouselPrev').addEventListener('click', () => { prevSlide(); stopCarousel(); startCarousel(); });
-    dotsWrap.addEventListener('click', (event) => {
-      const button = event.target.closest('button[data-i]');
-      if (!button) return;
-      goToSlide(Number(button.dataset.i));
-      stopCarousel();
-      startCarousel();
+    // Cierre de menús flotantes al hacer clic fuera
+    document.addEventListener('click', (e) => {
+      if (catDropdown && catToggle && !catDropdown.contains(e.target) && !catToggle.contains(e.target)) {
+        catDropdown.classList.remove('open');
+      }
     });
-    document.getElementById('heroCarousel').addEventListener('mouseenter', stopCarousel);
-    document.getElementById('heroCarousel').addEventListener('mouseleave', startCarousel);
-    startCarousel();
   }
 }
