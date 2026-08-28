@@ -8,8 +8,7 @@ export default class StoreModel {
     this.products = [];
     this.categories = [];
     this.cart = {};
-    this.STORAGE_USERS = 'meilanys_users';
-    this.STORAGE_SESSION = 'meilanys_session';
+    // Se eliminaron STORAGE_USERS y STORAGE_SESSION porque ahora lo maneja Supabase
     this.STORAGE_ACCOUNTS = 'meilanys_accounts';
     this.STORAGE_ORDERS = 'meilanys_orders';
     this.currentUser = null;
@@ -22,14 +21,11 @@ export default class StoreModel {
       if (!response.ok) throw new Error('Respuesta inválida del servidor');
       
       const data = await response.json();
-      
-      // Corregido: 'obtener_productos.php' devuelve { exito: true, productos: [...] }
       const listaProductos = data.productos || (Array.isArray(data) ? data : []);
 
       if (listaProductos.length > 0) {
         this.products = listaProductos;
 
-        // Si no se han cargado categorías explícitas, se autogeneran desde los productos
         if (this.categories.length === 0) {
           const uniqueCats = [...new Set(listaProductos.map(p => p.categoria).filter(Boolean))];
           this.categories = uniqueCats.map(c => ({ id: c, nombre: c, slug: c }));
@@ -50,7 +46,6 @@ export default class StoreModel {
 
       if (data.exito && Array.isArray(data.categorias) && data.categorias.length > 0) {
         this.categories = data.categorias.map(cat => {
-          // Generar un slug válido a partir del nombre (ej: "Frutas y Verduras" -> "frutas-y-verduras")
           const generatedSlug = cat.nombre
             .toLowerCase()
             .normalize("NFD")
@@ -58,7 +53,7 @@ export default class StoreModel {
             .replace(/[^a-z0-9]/g, '-');
 
           return {
-            id: cat.id || cat.nombre, // Usa el ID de la base de datos
+            id: cat.id || cat.nombre,
             nombre: cat.nombre,
             slug: generatedSlug
           };
@@ -72,15 +67,17 @@ export default class StoreModel {
   // --- Historial de pedidos ---
   saveOrder(user, order) {
     const historyMap = JSON.parse(localStorage.getItem(this.STORAGE_ORDERS) || '{}');
-    if (!historyMap[user.username]) historyMap[user.username] = [];
-    historyMap[user.username].unshift(order);
+    const userKey = user.email; // Adaptado para usar el email de Supabase
+    if (!historyMap[userKey]) historyMap[userKey] = [];
+    historyMap[userKey].unshift(order);
     localStorage.setItem(this.STORAGE_ORDERS, JSON.stringify(historyMap));
   }
 
   loadOrderHistory(user) {
     if (!user) return [];
     const historyMap = JSON.parse(localStorage.getItem(this.STORAGE_ORDERS) || '{}');
-    return historyMap[user.username] || [];
+    const userKey = user.email;
+    return historyMap[userKey] || [];
   }
 
   // --- Sesión y carrito ---
@@ -93,61 +90,96 @@ export default class StoreModel {
   }
 
   async loadSession() {
-    const saved = localStorage.getItem(this.STORAGE_SESSION);
-    if (saved) {
-      try {
-        this.currentUser = JSON.parse(saved);
-      } catch (e) {
+    try {
+      // Verificamos en Supabase si ya hay una sesión activa en el navegador
+      const { data: { session } } = await window.supabase.auth.getSession();
+      
+      if (session) {
+        this.currentUser = {
+          id: session.user.id,
+          email: session.user.email,
+          nombre: session.user.user_metadata?.nombre || session.user.email,
+          username: session.user.email
+        };
+      } else {
         this.currentUser = null;
       }
-    } else {
+    } catch (error) {
+      console.error("Error cargando sesión de Supabase:", error);
       this.currentUser = null;
     }
   }
 
-  ensureUsers() {
-    const users = localStorage.getItem(this.STORAGE_USERS);
-    if (!users) {
-      const defaultUsers = [{ nombre: 'Usuario Prueba', username: 'admin', email: 'admin@test.com', password: '123' }];
-      localStorage.setItem(this.STORAGE_USERS, JSON.stringify(defaultUsers));
-      return defaultUsers;
-    }
-    return JSON.parse(users);
-  }
-
   async loginUser(identifier, password) {
-    const users = this.ensureUsers();
-    const user = users.find(u => (u.username === identifier || u.email === identifier) && u.password === password);
-    if (user) {
-      this.currentUser = user;
-      localStorage.setItem(this.STORAGE_SESSION, JSON.stringify(user));
+    try {
+      // Autenticación real con Supabase
+      const { data, error } = await window.supabase.auth.signInWithPassword({
+        email: identifier, 
+        password: password
+      });
+
+      if (error) {
+        console.error('Error al iniciar sesión:', error.message);
+        return null; 
+      }
+
+      this.currentUser = {
+        id: data.user.id,
+        email: data.user.email,
+        nombre: data.user.user_metadata?.nombre || data.user.email,
+        username: data.user.email
+      };
+      
+      return this.currentUser;
+    } catch (error) {
+      console.error("Error en loginUser:", error);
+      return null;
     }
-    return user;
   }
 
   async registerUser(userData) {
-    const users = this.ensureUsers();
-    if (users.find(u => u.username === userData.usernameOrEmail || u.email === userData.email)) {
+    try {
+      // Registro real con Supabase
+      const { data, error } = await window.supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+        options: {
+          data: {
+            nombre: userData.nombre // Guardamos el nombre como metadato
+          }
+        }
+      });
+
+      if (error) {
+        console.error('Error al registrar usuario:', error.message);
+        return null;
+      }
+
+      this.currentUser = {
+        id: data.user.id,
+        email: data.user.email,
+        nombre: userData.nombre,
+        username: data.user.email
+      };
+
+      return this.currentUser;
+    } catch (error) {
+      console.error("Error en registerUser:", error);
       return null;
     }
-    const newUser = {
-      nombre: userData.nombre,
-      username: userData.usernameOrEmail,
-      email: userData.email,
-      password: userData.password
-    };
-    users.push(newUser);
-    localStorage.setItem(this.STORAGE_USERS, JSON.stringify(users));
-    this.currentUser = newUser;
-    localStorage.setItem(this.STORAGE_SESSION, JSON.stringify(newUser));
-    return newUser;
   }
 
   async logoutUser() {
-    this.currentUser = null;
-    localStorage.removeItem(this.STORAGE_SESSION);
+    try {
+      // Cerramos la sesión en el servidor de Supabase
+      await window.supabase.auth.signOut();
+      this.currentUser = null;
+    } catch (error) {
+      console.error("Error cerrando sesión:", error);
+    }
   }
 
+  // --- Datos de cuenta (Direcciones, Pagos, etc.) ---
   getAccountDataMap() {
     return JSON.parse(localStorage.getItem(this.STORAGE_ACCOUNTS) || '{}');
   }
@@ -159,36 +191,46 @@ export default class StoreModel {
   getAccountDataForCurrentUser() {
     if (!this.currentUser) return null;
     const map = this.getAccountDataMap();
-    if (!map[this.currentUser.username]) {
-      map[this.currentUser.username] = {
-        profile: { nombre: this.currentUser.nombre, username: this.currentUser.username, email: this.currentUser.email, phone: '', dni: '' },
+    const userKey = this.currentUser.email; // Adaptado a Supabase
+    
+    if (!map[userKey]) {
+      map[userKey] = {
+        profile: { nombre: this.currentUser.nombre, username: this.currentUser.email, email: this.currentUser.email, phone: '', dni: '' },
         addresses: [{ alias: 'Casa', street: '', district: '', city: '', reference: '' }],
         payments: [{ alias: 'Tarjeta principal', type: 'Visa', number: '', holder: this.currentUser.nombre }],
         refunds: { bank: '', account: '', cci: '', holder: '' }
       };
       this.saveAccountDataMap(map);
     }
-    return map[this.currentUser.username];
+    return map[userKey];
   }
 
   saveCurrentUserAccountData(data) {
     if (!this.currentUser) return;
     const map = this.getAccountDataMap();
-    map[this.currentUser.username] = data;
+    const userKey = this.currentUser.email;
+    map[userKey] = data;
     this.saveAccountDataMap(map);
   }
 
-  updateUserSessionFromProfile(profile) {
+  async updateUserSessionFromProfile(profile) {
     if (!this.currentUser) return;
-    this.currentUser.nombre = profile.nombre;
-    this.currentUser.email = profile.email;
-    localStorage.setItem(this.STORAGE_SESSION, JSON.stringify(this.currentUser));
-    const users = this.ensureUsers();
-    const userIndex = users.findIndex(u => u.username === this.currentUser.username);
-    if (userIndex !== -1) {
-      users[userIndex].nombre = profile.nombre;
-      users[userIndex].email = profile.email;
-      localStorage.setItem(this.STORAGE_USERS, JSON.stringify(users));
+    
+    try {
+      // Actualizamos los datos reales en Supabase
+      const { data, error } = await window.supabase.auth.updateUser({
+        email: profile.email,
+        data: { nombre: profile.nombre }
+      });
+
+      if (!error) {
+        this.currentUser.nombre = profile.nombre;
+        this.currentUser.email = profile.email;
+      } else {
+        console.error("Error actualizando perfil en Supabase:", error.message);
+      }
+    } catch (error) {
+      console.error("Error en updateUserSessionFromProfile:", error);
     }
   }
 
