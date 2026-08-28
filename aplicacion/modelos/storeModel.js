@@ -14,6 +14,17 @@ export default class StoreModel {
     this.currentUser = null;
   }
 
+  // --- Verificación e inicialización de usuario (El método que faltaba) ---
+  async ensureUsers() {
+    try {
+      await this.loadSession();
+      return this.currentUser;
+    } catch (error) {
+      console.error("Error en ensureUsers:", error);
+      return null;
+    }
+  }
+
   // --- Cargar productos desde la BD ---
   async fetchProductsFromDB() {
     try {
