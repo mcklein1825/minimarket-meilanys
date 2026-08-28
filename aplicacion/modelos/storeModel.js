@@ -8,13 +8,12 @@ export default class StoreModel {
     this.products = [];
     this.categories = [];
     this.cart = {};
-    // Se eliminaron STORAGE_USERS y STORAGE_SESSION porque ahora lo maneja Supabase
     this.STORAGE_ACCOUNTS = 'meilanys_accounts';
     this.STORAGE_ORDERS = 'meilanys_orders';
     this.currentUser = null;
   }
 
-  // --- Verificación e inicialización de usuario (El método que faltaba) ---
+  // --- Verificación e inicialización de usuario desde localStorage o Supabase ---
   async ensureUsers() {
     try {
       await this.loadSession();
@@ -78,7 +77,7 @@ export default class StoreModel {
   // --- Historial de pedidos ---
   saveOrder(user, order) {
     const historyMap = JSON.parse(localStorage.getItem(this.STORAGE_ORDERS) || '{}');
-    const userKey = user.email; // Adaptado para usar el email de Supabase
+    const userKey = user.email || user.correo;
     if (!historyMap[userKey]) historyMap[userKey] = [];
     historyMap[userKey].unshift(order);
     localStorage.setItem(this.STORAGE_ORDERS, JSON.stringify(historyMap));
@@ -87,11 +86,11 @@ export default class StoreModel {
   loadOrderHistory(user) {
     if (!user) return [];
     const historyMap = JSON.parse(localStorage.getItem(this.STORAGE_ORDERS) || '{}');
-    const userKey = user.email;
+    const userKey = user.email || user.correo;
     return historyMap[userKey] || [];
   }
 
-  // --- Sesión y carrito ---
+  // --- Sesión y Carrito (Usando tu tabla 'usuarios' y localStorage) ---
   clearCart() {
     this.cart = {};
   }
@@ -102,45 +101,42 @@ export default class StoreModel {
 
   async loadSession() {
     try {
-      // Verificamos en Supabase si ya hay una sesión activa en el navegador
-      const { data: { session } } = await window.supabase.auth.getSession();
-      
-      if (session) {
-        this.currentUser = {
-          id: session.user.id,
-          email: session.user.email,
-          nombre: session.user.user_metadata?.nombre || session.user.email,
-          username: session.user.email
-        };
+      const guardado = localStorage.getItem('meilanys_current_session');
+      if (guardado) {
+        this.currentUser = JSON.parse(guardado);
       } else {
         this.currentUser = null;
       }
     } catch (error) {
-      console.error("Error cargando sesión de Supabase:", error);
+      console.error("Error cargando sesión:", error);
       this.currentUser = null;
     }
   }
 
   async loginUser(identifier, password) {
     try {
-      // Autenticación real con Supabase
-      const { data, error } = await window.supabase.auth.signInWithPassword({
-        email: identifier, 
-        password: password
-      });
+      // Consultamos directamente tu tabla 'usuarios' en Supabase
+      const { data, error } = await window.supabase
+        .from('usuarios')
+        .select('*')
+        .or(`correo.eq.${identifier},nombre.eq.${identifier}`)
+        .eq('password', password)
+        .maybeSingle();
 
-      if (error) {
-        console.error('Error al iniciar sesión:', error.message);
-        return null; 
+      if (error || !data) {
+        console.error('Credenciales incorrectas o error en la BD');
+        return null;
       }
 
       this.currentUser = {
-        id: data.user.id,
-        email: data.user.email,
-        nombre: data.user.user_metadata?.nombre || data.user.email,
-        username: data.user.email
+        id: data.id,
+        email: data.correo,
+        nombre: data.nombre,
+        username: data.correo
       };
-      
+
+      // Guardamos la sesión actual en el navegador
+      localStorage.setItem('meilanys_current_session', JSON.stringify(this.currentUser));
       return this.currentUser;
     } catch (error) {
       console.error("Error en loginUser:", error);
@@ -150,29 +146,32 @@ export default class StoreModel {
 
   async registerUser(userData) {
     try {
-      // Registro real con Supabase
-      const { data, error } = await window.supabase.auth.signUp({
-        email: userData.email,
-        password: userData.password,
-        options: {
-          data: {
-            nombre: userData.nombre // Guardamos el nombre como metadato
+      // Insertamos el nuevo usuario directamente en tu tabla 'usuarios'
+      const { data, error } = await window.supabase
+        .from('usuarios')
+        .insert([
+          { 
+            nombre: userData.nombre, 
+            correo: userData.email, 
+            password: userData.password 
           }
-        }
-      });
+        ])
+        .select()
+        .single();
 
       if (error) {
-        console.error('Error al registrar usuario:', error.message);
+        console.error('Error al registrar usuario en la tabla:', error.message);
         return null;
       }
 
       this.currentUser = {
-        id: data.user.id,
-        email: data.user.email,
-        nombre: userData.nombre,
-        username: data.user.email
+        id: data.id,
+        email: data.correo,
+        nombre: data.nombre,
+        username: data.correo
       };
 
+      localStorage.setItem('meilanys_current_session', JSON.stringify(this.currentUser));
       return this.currentUser;
     } catch (error) {
       console.error("Error en registerUser:", error);
@@ -182,9 +181,8 @@ export default class StoreModel {
 
   async logoutUser() {
     try {
-      // Cerramos la sesión en el servidor de Supabase
-      await window.supabase.auth.signOut();
       this.currentUser = null;
+      localStorage.removeItem('meilanys_current_session');
     } catch (error) {
       console.error("Error cerrando sesión:", error);
     }
@@ -202,7 +200,7 @@ export default class StoreModel {
   getAccountDataForCurrentUser() {
     if (!this.currentUser) return null;
     const map = this.getAccountDataMap();
-    const userKey = this.currentUser.email; // Adaptado a Supabase
+    const userKey = this.currentUser.email || this.currentUser.username;
     
     if (!map[userKey]) {
       map[userKey] = {
@@ -219,7 +217,7 @@ export default class StoreModel {
   saveCurrentUserAccountData(data) {
     if (!this.currentUser) return;
     const map = this.getAccountDataMap();
-    const userKey = this.currentUser.email;
+    const userKey = this.currentUser.email || this.currentUser.username;
     map[userKey] = data;
     this.saveAccountDataMap(map);
   }
@@ -228,17 +226,18 @@ export default class StoreModel {
     if (!this.currentUser) return;
     
     try {
-      // Actualizamos los datos reales en Supabase
-      const { data, error } = await window.supabase.auth.updateUser({
-        email: profile.email,
-        data: { nombre: profile.nombre }
-      });
+      // Actualizamos el nombre/correo en tu tabla 'usuarios'
+      const { error } = await window.supabase
+        .from('usuarios')
+        .update({ nombre: profile.nombre, correo: profile.email })
+        .eq('id', this.currentUser.id);
 
       if (!error) {
         this.currentUser.nombre = profile.nombre;
         this.currentUser.email = profile.email;
+        localStorage.setItem('meilanys_current_session', JSON.stringify(this.currentUser));
       } else {
-        console.error("Error actualizando perfil en Supabase:", error.message);
+        console.error("Error actualizando perfil en la BD:", error.message);
       }
     } catch (error) {
       console.error("Error en updateUserSessionFromProfile:", error);
