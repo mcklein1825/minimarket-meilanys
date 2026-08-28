@@ -499,6 +499,14 @@ Estado: activo y en uso.
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
+  <!-- CONEXIÓN A SUPABASE -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const supabaseUrl = 'https://TU_URL_DE_PROYECTO.supabase.co';
+    const supabaseKey = 'TU_CLAVE_ANONIMA';
+    window.supabase = supabase.createClient(supabaseUrl, supabaseKey);
+  </script>
+
   <script type="module" src="./recursos/scripts/main.js"></script>
 </body>
 </html>
