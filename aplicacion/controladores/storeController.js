@@ -151,7 +151,14 @@ export default class StoreController {
       return;
     }
 
-    this.model.cart[id] = (this.model.cart[id] || 0) + 1;
+    const currentQty = Number(this.model.cart[id] || 0);
+    const stock = Number(product.stock ?? 0);
+    if (stock > 0 && currentQty >= stock) {
+      this.view.showToast(`Stock disponible: ${stock} unidades`);
+      return;
+    }
+
+    this.model.cart[id] = currentQty + 1;
     this.view.renderCart(this.model.cart, this.model.products, this.model.fmt.bind(this.model));
     this.updateCartBadge();
     this.view.showToast(`${product.nombre} agregado al carrito`);
@@ -159,12 +166,21 @@ export default class StoreController {
 
   changeQty(id, delta) {
     if (!this.model.cart[id]) return;
-    
-    this.model.cart[id] += delta;
-    if (this.model.cart[id] <= 0) {
-      delete this.model.cart[id];
+
+    const product = this.model.products.find(p => String(p.id) === String(id));
+    const stock = product ? Number(product.stock ?? 0) : Infinity;
+    const nextQty = this.model.cart[id] + delta;
+
+    if (stock > 0 && nextQty > stock) {
+      this.model.cart[id] = stock;
+      this.view.showToast(`Solo quedan ${stock} unidades en stock`);
+    } else {
+      this.model.cart[id] = nextQty;
+      if (this.model.cart[id] <= 0) {
+        delete this.model.cart[id];
+      }
     }
-    
+
     this.view.renderCart(this.model.cart, this.model.products, this.model.fmt.bind(this.model));
     this.updateCartBadge();
   }
@@ -212,9 +228,17 @@ export default class StoreController {
     const items = ids.map((id) => {
       const product = this.model.products.find((pr) => String(pr.id) === String(id));
       if (!product) return null;
+      const quantity = Number(this.model.cart[id]);
+      const stock = Number(product.stock ?? 0);
+
+      if (stock > 0 && quantity > stock) {
+        this.model.cart[id] = stock;
+        this.view.showToast(`Se ajustó ${product.nombre} al stock disponible (${stock})`);
+      }
+
       return {
         title: product.nombre,
-        quantity: Number(this.model.cart[id]),
+        quantity: Math.min(Number(this.model.cart[id]), stock > 0 ? stock : Number(this.model.cart[id])),
         unit_price: Number(product.precio),
         currency_id: 'PEN'
       };
