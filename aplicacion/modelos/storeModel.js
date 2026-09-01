@@ -101,90 +101,105 @@ export default class StoreModel {
 
   async loadSession() {
     try {
-      const guardado = localStorage.getItem('meilanys_current_session');
-      if (guardado) {
-        this.currentUser = JSON.parse(guardado);
-      } else {
+      const response = await fetch('../servicios/auth.php', { credentials: 'same-origin' });
+      if (!response.ok) {
         this.currentUser = null;
+        localStorage.removeItem('meilanys_current_session');
+        return null;
+      }
+
+      const payload = await response.json();
+      this.currentUser = payload.user || null;
+      if (this.currentUser) {
+        localStorage.setItem('meilanys_current_session', JSON.stringify(this.currentUser));
+      } else {
+        localStorage.removeItem('meilanys_current_session');
       }
     } catch (error) {
-      console.error("Error cargando sesión:", error);
+      console.error('Error cargando sesión:', error);
       this.currentUser = null;
+      localStorage.removeItem('meilanys_current_session');
     }
   }
 
   async loginUser(identifier, password) {
     try {
-      // Consultamos directamente tu tabla 'usuarios' en Supabase
-      const { data, error } = await window.supabase
-        .from('usuarios')
-        .select('*')
-        .or(`correo.eq.${identifier},nombre.eq.${identifier}`)
-        .eq('password', password)
-        .maybeSingle();
+      const response = await fetch('../servicios/auth.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: 'login', identifier, password })
+      });
 
-      if (error || !data) {
-        console.error('Credenciales incorrectas o error en la BD');
+      const result = await response.json();
+      if (!response.ok || !result.user) {
+        console.error(result?.error || 'Credenciales incorrectas');
         return null;
       }
 
       this.currentUser = {
-        id: data.id,
-        email: data.correo,
-        nombre: data.nombre,
-        username: data.correo
+        id: result.user.id,
+        email: result.user.email,
+        nombre: result.user.nombre,
+        username: result.user.email || result.user.nombre
       };
 
-      // Guardamos la sesión actual en el navegador
       localStorage.setItem('meilanys_current_session', JSON.stringify(this.currentUser));
       return this.currentUser;
     } catch (error) {
-      console.error("Error en loginUser:", error);
+      console.error('Error en loginUser:', error);
       return null;
     }
   }
 
   async registerUser(userData) {
     try {
-      // Insertamos el nuevo usuario directamente en tu tabla 'usuarios'
-      const { data, error } = await window.supabase
-        .from('usuarios')
-        .insert([
-          { 
-            nombre: userData.nombre, 
-            correo: userData.email, 
-            password: userData.password 
-          }
-        ])
-        .select()
-        .single();
+      const response = await fetch('../servicios/auth.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          action: 'register',
+          nombre: userData.nombre,
+          email: userData.email,
+          password: userData.password
+        })
+      });
 
-      if (error) {
-        console.error('Error al registrar usuario en la tabla:', error.message);
+      const result = await response.json();
+      if (!response.ok || !result.user) {
+        console.error(result?.error || 'Error al registrar usuario');
         return null;
       }
 
       this.currentUser = {
-        id: data.id,
-        email: data.correo,
-        nombre: data.nombre,
-        username: data.correo
+        id: result.user.id,
+        email: result.user.email,
+        nombre: result.user.nombre,
+        username: result.user.email || result.user.nombre
       };
 
       localStorage.setItem('meilanys_current_session', JSON.stringify(this.currentUser));
       return this.currentUser;
     } catch (error) {
-      console.error("Error en registerUser:", error);
+      console.error('Error en registerUser:', error);
       return null;
     }
   }
 
   async logoutUser() {
     try {
+      await fetch('../servicios/auth.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: 'logout' })
+      });
+    } catch (error) {
+      console.error('Error cerrando sesión:', error);
+    } finally {
       this.currentUser = null;
       localStorage.removeItem('meilanys_current_session');
-    } catch (error) {
-      console.error("Error cerrando sesión:", error);
     }
   }
 
@@ -224,23 +239,13 @@ export default class StoreModel {
 
   async updateUserSessionFromProfile(profile) {
     if (!this.currentUser) return;
-    
-    try {
-      // Actualizamos el nombre/correo en tu tabla 'usuarios'
-      const { error } = await window.supabase
-        .from('usuarios')
-        .update({ nombre: profile.nombre, correo: profile.email })
-        .eq('id', this.currentUser.id);
 
-      if (!error) {
-        this.currentUser.nombre = profile.nombre;
-        this.currentUser.email = profile.email;
-        localStorage.setItem('meilanys_current_session', JSON.stringify(this.currentUser));
-      } else {
-        console.error("Error actualizando perfil en la BD:", error.message);
-      }
+    try {
+      this.currentUser.nombre = profile.nombre;
+      this.currentUser.email = profile.email;
+      localStorage.setItem('meilanys_current_session', JSON.stringify(this.currentUser));
     } catch (error) {
-      console.error("Error en updateUserSessionFromProfile:", error);
+      console.error('Error en updateUserSessionFromProfile:', error);
     }
   }
 
