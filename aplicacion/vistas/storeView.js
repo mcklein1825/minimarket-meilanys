@@ -72,13 +72,18 @@ export default class StoreView {
 
   productCardHTML(prod, fmt) {
     const hasDiscount = !!prod.precioAnterior;
+    const imageUrl = prod.imagen_url || prod.image_url || prod.foto || '';
+    const mediaMarkup = imageUrl
+      ? `<img src="${imageUrl}" alt="${prod.nombre}" class="product-card__img" loading="lazy" onerror="this.style.display='none';this.parentElement.innerHTML='<span>${prod.icono || '📦'}</span>'">`
+      : `<span>${prod.icono || '📦'}</span>`;
+
     return `
       <article class="product-card" data-id="${prod.id}">
-        <div class="product-card__media"><span>${prod.icono || '📦'}</span></div>
+        <div class="product-card__media">${mediaMarkup}</div>
         <div class="price-tag ${hasDiscount ? 'sale' : ''}">${fmt(prod.precio)}</div>
         <h3 class="product-card__name">${prod.nombre}</h3>
-        <span class="product-card__unit">por ${prod.unidad}</span>
-        <span class="product-card__rating">⭐ ${prod.rating}</span>
+        <span class="product-card__unit">por ${prod.unidad || 'unidad'}</span>
+        <span class="product-card__rating">⭐ ${prod.rating || '4.8'}</span>
         <div class="product-card__prices">
           ${hasDiscount ? `<span class="price-old">${fmt(prod.precioAnterior)}</span>` : ''}
         </div>
