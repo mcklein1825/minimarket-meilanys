@@ -3,18 +3,32 @@
 Archivo: mercado-pago-config.php
 Ruta: configuracion/mercado-pago-config.php
 Proyecto: Minimarket Meilanys
-Propósito: Definición de credenciales y rutas para la integración con Mercado Pago.
+Propósito: Definición segura de credenciales y rutas para Mercado Pago.
 */
 
-// Ocultar la salida de errores directos en HTML para no corruptar las respuestas JSON
 ini_set('display_errors', '0');
 error_reporting(E_ALL);
 
-// Lee la variable de entorno de Render o usa el token local/prueba entre comillas
-$token = getenv('MP_ACCESS_TOKEN') ?: 'TEST-4181627865895635-082111-1b683d82281659e956da68ecaacc9bee-2991320569';
+$token = getenv('MP_ACCESS_TOKEN');
+if (is_string($token)) {
+    $token = trim($token);
+} else {
+    $token = '';
+}
+
 define('MP_ACCESS_TOKEN', $token);
 
-// URLs de retorno para redirección del cliente tras la compra
-define('MP_SUCCESS_URL', 'https://minimarket-meilanys.onrender.com/publico/index.html?status=success');
-define('MP_FAILURE_URL', 'https://minimarket-meilanys.onrender.com/publico/index.html?status=failure');
-define('MP_PENDING_URL', 'https://minimarket-meilanys.onrender.com/publico/index.html?status=pending');
+$baseUrl = getenv('APP_BASE_URL');
+if (empty($baseUrl)) {
+    $baseUrl = (!empty($_SERVER['HTTPS']) ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+}
+$baseUrl = rtrim($baseUrl, '/');
+
+if ($baseUrl === '') {
+    $baseUrl = 'http://localhost';
+}
+
+define('APP_BASE_URL', $baseUrl);
+define('MP_SUCCESS_URL', APP_BASE_URL . '/publico/paginas/pago-exitoso.php?status=approved');
+define('MP_FAILURE_URL', APP_BASE_URL . '/publico/paginas/pago-fallido.php?status=failed');
+define('MP_PENDING_URL', APP_BASE_URL . '/publico/paginas/pago-pendiente.php?status=pending');
