@@ -268,6 +268,20 @@ export default class StoreView {
   }
 
   openAuthModal() {
+    this.elements.authTitle.textContent = 'Iniciar sesión';
+    this.elements.authToggleMode.textContent = 'Crear una cuenta';
+    const nameField = this.elements.authName?.closest('.auth-field');
+    const emailField = this.elements.authEmail?.closest('.auth-field');
+    if (nameField) {
+      nameField.hidden = true;
+      this.elements.authName.required = false;
+    }
+    if (emailField) {
+      emailField.hidden = true;
+      this.elements.authEmail.required = false;
+    }
+    const submitBtn = this.elements.authForm?.querySelector('.btn--primary');
+    if (submitBtn) submitBtn.textContent = 'Iniciar sesión';
     this.elements.authModal.classList.add('open');
     this.elements.authModal.setAttribute('aria-hidden', 'false');
     this.elements.overlay.classList.add('open');
