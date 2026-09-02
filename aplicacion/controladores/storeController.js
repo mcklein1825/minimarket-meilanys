@@ -293,8 +293,14 @@ export default class StoreController {
     const nameField = this.view.elements.authName?.closest('.auth-field');
     const emailField = this.view.elements.authEmail?.closest('.auth-field');
 
-    if (nameField) nameField.style.display = isLogin ? 'block' : 'none';
-    if (emailField) emailField.style.display = isLogin ? 'block' : 'none';
+    if (nameField) {
+      nameField.hidden = isLogin;
+      nameField.querySelector('input').required = !isLogin;
+    }
+    if (emailField) {
+      emailField.hidden = isLogin;
+      emailField.querySelector('input').required = !isLogin;
+    }
   }
 
   async handleLogout() {
