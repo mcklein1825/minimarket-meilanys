@@ -17,4 +17,16 @@ import StoreController from '../../../aplicacion/controladores/storeController.j
 const model = new StoreModel();
 const view = new StoreView();
 const controller = new StoreController(model, view);
+
+// Este evento se registra antes de las llamadas remotas para que el menu
+// siga respondiendo aunque Supabase tarde en devolver los datos.
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+const header = document.getElementById('header');
+if (mobileMenuBtn && header) {
+  mobileMenuBtn.addEventListener('click', () => {
+    const isOpen = header.classList.toggle('mobile-menu-open');
+    mobileMenuBtn.setAttribute('aria-expanded', String(isOpen));
+  });
+}
+
 controller.init();
