@@ -631,10 +631,11 @@ export default class StoreController {
     // Menú Adaptativo Móvil
     if (mobileMenuBtn) {
       mobileMenuBtn.addEventListener('click', () => {
-        if (!catDropdown) return;
-        const isOpen = catDropdown.classList.toggle('open');
+        const isOpen = this.view.elements.header.classList.toggle('mobile-menu-open');
         mobileMenuBtn.setAttribute('aria-expanded', String(isOpen));
-        if (isOpen) catDropdown.querySelector('a')?.focus();
+        if (isOpen) {
+          this.view.elements.headerActions?.querySelector('.action-btn')?.focus();
+        }
       });
     }
 
@@ -650,6 +651,7 @@ export default class StoreController {
       ) {
         catDropdown.classList.remove('open');
         mobileMenuBtn.setAttribute('aria-expanded', 'false');
+        this.view.elements.header.classList.remove('mobile-menu-open');
       }
     });
   }
