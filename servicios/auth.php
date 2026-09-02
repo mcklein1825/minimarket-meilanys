@@ -14,29 +14,15 @@ function normalizeEmail($value) {
     return strtolower(trim((string)$value));
 }
 
-function getUserEmailColumn($pdo) {
-    $columns = ['email', 'correo'];
-    foreach ($columns as $column) {
-        try {
-            $stmt = $pdo->query('SELECT 1 FROM usuarios LIMIT 1');
-            $stmt = $pdo->query('SELECT ' . $column . ' FROM usuarios LIMIT 1');
-            return $column;
-        } catch (PDOException $e) {
-            continue;
-        }
-    }
-    return 'email';
-}
-
 function userExistsByEmail($pdo, $email) {
-    $stmt = $pdo->prepare('SELECT id FROM usuarios WHERE LOWER(COALESCE(email, correo)) = LOWER(?) LIMIT 1');
+    $stmt = $pdo->prepare('SELECT id FROM usuarios WHERE LOWER(correo) = LOWER(?) LIMIT 1');
     $stmt->execute([$email]);
     return (bool) $stmt->fetch();
 }
 
-function resolveUserRecord($pdo, $email) {
-    $stmt = $pdo->prepare('SELECT id, nombre, email, correo, password FROM usuarios WHERE LOWER(COALESCE(email, correo)) = LOWER(?) LIMIT 1');
-    $stmt->execute([$email]);
+function resolveUserRecord($pdo, $identifier) {
+    $stmt = $pdo->prepare('SELECT id, nombre, correo, password FROM usuarios WHERE LOWER(correo) = LOWER(?) OR LOWER(nombre) = LOWER(?) LIMIT 1');
+    $stmt->execute([$identifier, $identifier]);
     return $stmt->fetch();
 }
 
@@ -45,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         respondJson(200, ['user' => null]);
     }
 
-    $stmt = $pdo->prepare('SELECT id, nombre, email, correo FROM usuarios WHERE id = ? LIMIT 1');
+    $stmt = $pdo->prepare('SELECT id, nombre, correo FROM usuarios WHERE id = ? LIMIT 1');
     $stmt->execute([$_SESSION['user_id']]);
     $user = $stmt->fetch();
 
@@ -55,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         respondJson(200, ['user' => null]);
     }
 
-    $email = $user['email'] ?? $user['correo'] ?? null;
+    $email = $user['correo'];
     respondJson(200, ['user' => [
         'id' => (int)$user['id'],
         'nombre' => $user['nombre'],
@@ -76,6 +62,34 @@ if ($action === 'logout') {
     respondJson(200, ['ok' => true]);
 }
 
+if ($action === 'update_profile') {
+    if (empty($_SESSION['user_id'])) {
+        respondJson(401, ['error' => 'Debes iniciar sesión.']);
+    }
+
+    $nombre = trim((string)($input['nombre'] ?? ''));
+    $email = normalizeEmail($input['email'] ?? '');
+    if ($nombre === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        respondJson(400, ['error' => 'Ingresa un nombre y un correo válidos.']);
+    }
+
+    $stmt = $pdo->prepare('SELECT id FROM usuarios WHERE LOWER(correo) = LOWER(?) AND id <> ? LIMIT 1');
+    $stmt->execute([$email, $_SESSION['user_id']]);
+    if ($stmt->fetch()) {
+        respondJson(409, ['error' => 'El correo ya está registrado.']);
+    }
+
+    $stmt = $pdo->prepare('UPDATE usuarios SET nombre = ?, correo = ? WHERE id = ?');
+    $stmt->execute([$nombre, $email, $_SESSION['user_id']]);
+    $_SESSION['user_name'] = $nombre;
+
+    respondJson(200, ['user' => [
+        'id' => (int)$_SESSION['user_id'],
+        'nombre' => $nombre,
+        'email' => $email
+    ]]);
+}
+
 if ($action === 'register') {
     $nombre = trim((string)($input['nombre'] ?? ''));
     $email = normalizeEmail($input['email'] ?? ($input['identifier'] ?? ''));
@@ -90,33 +104,14 @@ if ($action === 'register') {
     }
 
     $displayName = $nombre !== '' ? $nombre : explode('@', $email)[0];
-    $username = preg_replace('/[^a-zA-Z0-9._-]+/', '', strtolower(str_replace(' ', '.', $displayName))) ?: 'usuario';
     $passwordHash = password_hash($password, PASSWORD_BCRYPT);
 
     try {
-        $hasEmail = false;
-        $hasCorreo = false;
-        foreach (['email', 'correo'] as $column) {
-            try {
-                $pdo->query('SELECT ' . $column . ' FROM usuarios LIMIT 1');
-                if ($column === 'email') {
-                    $hasEmail = true;
-                } else {
-                    $hasCorreo = true;
-                }
-            } catch (PDOException $e) {
-            }
-        }
-
-        if ($hasEmail) {
-            $stmt = $pdo->prepare('INSERT INTO usuarios (nombre, username, email, password) VALUES (?, ?, ?, ?)');
-            $stmt->execute([$displayName, $username, $email, $passwordHash]);
-        } else {
-            $stmt = $pdo->prepare('INSERT INTO usuarios (nombre, username, correo, password) VALUES (?, ?, ?, ?)');
-            $stmt->execute([$displayName, $username, $email, $passwordHash]);
-        }
+        $stmt = $pdo->prepare('INSERT INTO usuarios (nombre, correo, password) VALUES (?, ?, ?)');
+        $stmt->execute([$displayName, $email, $passwordHash]);
     } catch (PDOException $e) {
-        respondJson(500, ['error' => 'Error al registrar.', 'detalle' => $e->getMessage()]);
+        error_log('Error al registrar usuario: ' . $e->getMessage());
+        respondJson(500, ['error' => 'Error al registrar.']);
     }
 
     $user = resolveUserRecord($pdo, $email);
@@ -130,11 +125,11 @@ if ($action === 'register') {
     respondJson(201, ['user' => [
         'id' => (int)$user['id'],
         'nombre' => $user['nombre'],
-        'email' => $user['email'] ?? $user['correo']
+        'email' => $user['correo']
     ]]);
 }
 
-$identifier = normalizeEmail($input['identifier'] ?? '');
+$identifier = trim((string)($input['identifier'] ?? ''));
 $password = (string)($input['password'] ?? '');
 
 if ($identifier === '' || $password === '') {
@@ -142,12 +137,21 @@ if ($identifier === '' || $password === '') {
 }
 
 $user = resolveUserRecord($pdo, $identifier);
-$passwordMatches = $user && isset($user['password']) && (
-    password_verify($password, $user['password']) || hash_equals((string)$user['password'], $password)
+$storedPassword = (string)($user['password'] ?? '');
+$passwordMatches = $user && (
+    password_verify($password, $storedPassword) ||
+    hash_equals($storedPassword, $password)
 );
 
 if (!$user || !$passwordMatches) {
     respondJson(401, ['error' => 'Credenciales incorrectas.']);
+}
+
+// Migra contraseñas antiguas en texto plano después de un acceso válido.
+if ($user && !password_get_info($storedPassword)['algo']) {
+    $newPasswordHash = password_hash($password, PASSWORD_BCRYPT);
+    $updatePassword = $pdo->prepare('UPDATE usuarios SET password = ? WHERE id = ?');
+    $updatePassword->execute([$newPasswordHash, $user['id']]);
 }
 
 $_SESSION['user_id'] = (int)$user['id'];
@@ -156,5 +160,5 @@ $_SESSION['user_name'] = $user['nombre'];
 respondJson(200, ['user' => [
     'id' => (int)$user['id'],
     'nombre' => $user['nombre'],
-    'email' => $user['email'] ?? $user['correo']
+    'email' => $user['correo']
 ]]);
