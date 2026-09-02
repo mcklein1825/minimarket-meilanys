@@ -1,191 +1,101 @@
 <!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Minimarket Meilanys</title>
-    <meta name="description" content="Tienda de productos frescos y del hogar de Minimarket Meilanys." />
-    <link rel="stylesheet" href="./recursos/estilos/styles.css" />
-  </head>
-  <body>
-    <div class="ticker" aria-label="Promociones">
-      <div class="ticker__track" id="tickerTrack"></div>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minimarket Meilanys</title>
+  <meta name="description" content="Productos frescos y del hogar, entregados rápidamente.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./recursos/estilos/styles.css">
+</head>
+<body>
+  <div class="ticker"><div class="ticker__track" id="tickerTrack"></div></div>
+
+  <header class="header" id="header">
+    <div class="header__inner">
+      <a class="logo" href="#inicio" aria-label="Minimarket Meilanys, inicio">
+        <span class="logo__mark">M</span>
+        <span class="logo__text">Minimarket Meilanys<small>Todo lo esencial, cerca de ti</small></span>
+      </a>
+      <nav class="categories-nav">
+        <button class="categories-toggle" id="catToggle" aria-expanded="false" type="button"><span>Categorías</span><span class="chev">▾</span></button>
+        <div class="categories-dropdown" id="catDropdown"></div>
+      </nav>
+      <label class="search" aria-label="Buscar productos">
+        <input type="search" id="headerSearch" placeholder="¿Qué buscas hoy?" autocomplete="off">
+        <button id="headerSearchBtn" type="button" aria-label="Buscar">⌕</button>
+      </label>
+      <div class="header-actions">
+        <button class="action-btn" id="deliveryOpenBtn" type="button"><span class="ico">🚚</span><span class="label">Entrega</span></button>
+        <button class="action-btn" id="listasBtn" type="button"><span class="ico">📋</span><span class="label">Listas</span></button>
+        <button class="action-btn" id="cuentaBtn" type="button"><span class="ico">👤</span><span class="label">Mi cuenta</span></button>
+        <button class="action-btn cart-btn" id="cartOpenBtn" type="button"><span class="ico">🛒</span><span class="label">Carrito</span><span class="cart-badge" id="cartBadge">0</span></button>
+      </div>
+      <button class="mobile-menu-btn" id="mobileMenuBtn" type="button" aria-label="Abrir menú">☰</button>
     </div>
+    <div class="delivery-bar"><span>🏡 Entrega en menos de 2 horas en Lima</span><button id="deliveryOpenBtnSecondary" type="button">Ver zonas</button></div>
+  </header>
 
-    <header class="header" id="header">
-      <div class="header__inner">
-        <div class="logo">
-          <div class="logo__mark">M</div>
-          <div class="logo__text">Meilanys<small>minimarket</small></div>
-        </div>
-
-        <div class="categories-nav">
-          <button class="categories-toggle" id="catToggle" aria-expanded="false">
-            <span>Categorías</span>
-            <span class="chev">▾</span>
-          </button>
-          <nav class="categories-dropdown" id="catDropdown" aria-label="Categorías"></nav>
-        </div>
-
-        <label class="search" aria-label="Buscar productos">
-          <input id="headerSearch" type="search" placeholder="Busca frutas, leche, arroz..." />
-          <button id="headerSearchBtn" type="button" aria-label="Buscar">⌕</button>
-        </label>
-
-        <div class="header-actions">
-          <button class="action-btn" id="deliveryOpenBtn" type="button">
-            <span class="ico">🚚</span>
-            <span>Entrega</span>
-          </button>
-          <button class="action-btn" id="listasBtn" type="button">
-            <span class="ico">📋</span>
-            <span>Listas</span>
-          </button>
-          <button class="action-btn" id="cuentaBtn" type="button">
-            <span class="ico">👤</span>
-            <span>Cuenta</span>
-          </button>
-          <button class="action-btn" id="cartOpenBtn" type="button">
-            <span class="ico">🛒</span>
-            <span>Carrito</span>
-            <span class="cart-badge" id="cartBadge">0</span>
-          </button>
-        </div>
+  <main>
+    <section class="hero" id="inicio">
+      <div class="hero__content">
+        <span class="eyebrow">Compra fácil</span>
+        <h1>Productos frescos y de hogar, entregados al instante.</h1>
+        <p>Encuentra frutas, lácteos, abarrotes y bebidas con entrega rápida y pagos seguros.</p>
+        <div class="hero__ctas"><a href="#catalogo" class="btn btn--primary">Comprar ahora</a><a href="#ofertas" class="btn btn--ghost">Ver ofertas</a></div>
       </div>
-
-      <div class="delivery-bar">
-        <span>🏡 Entrega en menos de 2 horas en Lima</span>
-        <button type="button">Ver zonas</button>
+      <div class="hero__carousel" id="heroCarousel">
+        <div class="slide slide--1 active"><span class="slide__icon">Oferta</span><span class="slide__tag">Frutas y verduras</span><h3>15% de descuento en paltas y cítricos</h3><p>Ofertas frescas por tiempo limitado.</p></div>
+        <div class="slide slide--2"><span class="slide__icon">Oferta</span><span class="slide__tag">Panadería del día</span><h3>2x1 en pan artesanal recién horneado</h3><p>Todos los días desde las 6:00 a. m.</p></div>
+        <div class="slide slide--3"><span class="slide__icon">Oferta</span><span class="slide__tag">Congelados</span><h3>Hasta 30% en carnes y platos listos</h3><p>Stock limitado esta semana.</p></div>
+        <button class="carousel-arrow prev" id="carouselPrev" type="button" aria-label="Anterior">‹</button><button class="carousel-arrow next" id="carouselNext" type="button" aria-label="Siguiente">›</button><div class="carousel-dots" id="carouselDots"></div>
       </div>
-    </header>
+    </section>
 
-    <main class="container main-shell">
-      <section class="hero-section">
-        <div>
-          <span class="eyebrow">Compra fácil</span>
-          <h1>Productos frescos y de hogar, entregados al instante.</h1>
-          <p>Encuentra frutas, lácteos, abarrotes y bebidas con entrega rápida y pagos seguros.</p>
-          <div class="hero-cta">
-            <button class="btn btn--primary" type="button">Comprar ahora</button>
-            <button class="btn btn--ghost" type="button">Ver ofertas</button>
-          </div>
-        </div>
-        <div class="hero-panel">
-          <div class="hero-badge">Delivery</div>
-          <div class="hero-stat">
-            <strong>4.9/5</strong>
-            <span>Valoración clientes</span>
-          </div>
-          <div class="hero-stat">
-            <strong>24/7</strong>
-            <span>Soporte</span>
-          </div>
-        </div>
-      </section>
+    <section class="categories" id="categorias">
+      <div class="head reveal"><span class="eyebrow">Nuestro catálogo</span><h2 class="section-title">Encuentra lo que buscas</h2><p>Todo lo esencial para tu hogar, en un solo lugar.</p></div>
+      <div class="category-grid" id="categoryGrid"></div>
+    </section>
 
-      <section class="catalog-section" id="categorias">
-        <div class="section-head">
-          <div>
-            <span class="eyebrow">Catálogo</span>
-            <h2 class="section-title">Encuentra lo que buscas</h2>
-          </div>
-        </div>
+    <section class="offers" id="ofertas">
+      <div class="offers__header reveal"><div><span class="eyebrow">Ofertas de la semana</span><h2 class="section-title">Promociones del día</h2></div><div class="countdown"><div><div class="countdown__label">Nueva reposición en</div><div class="countdown__time" id="countdownTime">--:--:--</div></div></div></div>
+      <div class="offers-grid" id="offersGrid"></div>
+    </section>
 
-        <div id="categoryGrid" class="category-grid"></div>
-        <div id="filterTabs" class="filter-tabs" role="tablist" aria-label="Filtros"></div>
-      </section>
+    <section class="catalog" id="catalogo">
+      <div class="catalog__controls"><div class="filter-tabs" id="filterTabs" role="tablist" aria-label="Filtros"></div><div class="catalog-search"><input type="search" id="catalogSearch" placeholder="Buscar en el catálogo..." autocomplete="off"></div></div>
+      <div class="product-grid" id="productGrid"></div><p class="empty-state" id="emptyState" hidden>No encontramos productos con ese filtro. Prueba con otra palabra o categoría.</p>
+    </section>
 
-      <section class="offers-section">
-        <div class="section-head">
-          <div>
-            <span class="eyebrow">Ofertas</span>
-            <h2 class="section-title">Promociones del día</h2>
-          </div>
-        </div>
-        <div id="offersGrid" class="product-grid offers-grid"></div>
-      </section>
+    <section class="business-highlights"><div class="container"><div class="head reveal"><span class="eyebrow">Nuestra diferencia</span><h2 class="section-title">Un servicio pensado para negocios y hogares</h2><p>Una experiencia confiable, rápida y profesional desde la primera compra.</p></div><div class="feature-grid">
+      <article class="feature-card reveal"><div class="feature-card__icon">01</div><h3>Selección premium</h3><p>Productos frescos y de calidad, revisados cada día.</p></article><article class="feature-card reveal"><div class="feature-card__icon">02</div><h3>Entrega ágil</h3><p>Despachos rápidos para que tu compra llegue cuando la necesitas.</p></article><article class="feature-card reveal"><div class="feature-card__icon">03</div><h3>Pago seguro</h3><p>Opciones simples para pagar con total tranquilidad.</p></article><article class="feature-card reveal"><div class="feature-card__icon">04</div><h3>Soporte cercano</h3><p>Atención rápida durante todo el proceso.</p></article>
+    </div></div></section>
 
-      <section class="products-section">
-        <div class="section-head">
-          <div>
-            <span class="eyebrow">Productos</span>
-            <h2 class="section-title">Nuestra selección</h2>
-          </div>
-        </div>
-        <div id="productGrid" class="product-grid"></div>
-        <div id="emptyState" class="empty-state" hidden>
-          <h3>No encontramos productos</h3>
-          <p>Prueba otra búsqueda o cambia de categoría.</p>
-        </div>
-      </section>
-    </main>
+    <section class="process-section"><div class="container process-grid"><div class="process-copy reveal"><span class="eyebrow">Cómo lo hacemos</span><h2 class="section-title">Compra fácil, clara y segura</h2><p>Combina rapidez, confianza y atención real en cada pedido.</p><ul class="check-list"><li>Elige tus productos por categoría.</li><li>Confirma entrega o recojo.</li><li>Recibe seguimiento de tu pedido.</li></ul></div><div class="process-steps reveal"><article class="step-card"><span class="step-card__num">01</span><h3>Explora</h3><p>Busca y elige lo que necesitas.</p></article><article class="step-card"><span class="step-card__num">02</span><h3>Confirma</h3><p>Revisa tu carrito antes de pagar.</p></article><article class="step-card"><span class="step-card__num">03</span><h3>Recibe</h3><p>Te informamos sobre tu entrega.</p></article></div></div></section>
 
-    <aside class="cart-drawer" id="cartDrawer" aria-label="Carrito de compras">
-      <div class="cart-drawer__header">
-        <h3>Tu carrito</h3>
-        <button id="cartCloseBtn" class="icon-btn" type="button" aria-label="Cerrar carrito">✕</button>
-      </div>
-      <div id="cartItems" class="cart-items"></div>
-      <div id="cartFooter" class="cart-footer"></div>
-    </aside>
+    <section class="trust"><div class="container"><div class="trust-item reveal"><span class="trust-item__ico">01</span><h4>Entrega en menos de 2 horas</h4><p>Despachamos desde el mercado más cercano.</p></div><div class="trust-item reveal"><span class="trust-item__ico">02</span><h4>Frescura garantizada</h4><p>Cambiamos sin costo lo que no llegue en buen estado.</p></div><div class="trust-item reveal"><span class="trust-item__ico">03</span><h4>Pago 100% seguro</h4><p>Tarjeta, Yape, Plin o efectivo contra entrega.</p></div><div class="trust-item reveal"><span class="trust-item__ico">04</span><h4>Cambios sin complicaciones</h4><p>Reporta cualquier producto dentro de 24 horas.</p></div></div></section>
 
-    <div id="overlay" class="overlay"></div>
+    <section class="testimonials"><div class="container"><div class="head reveal"><span class="eyebrow">Clientes satisfechos</span><h2 class="section-title">La confianza se ve en cada compra</h2></div><div class="testimonial-grid"><article class="testimonial-card reveal"><div class="testimonial-card__stars">★★★★★</div><p>“La atención y la frescura son excelentes.”</p><div class="testimonial-card__person"><strong>María C.</strong><span>Cliente frecuente</span></div></article><article class="testimonial-card reveal"><div class="testimonial-card__stars">★★★★★</div><p>“Puedo comprar en minutos y recibir lo que necesito.”</p><div class="testimonial-card__person"><strong>José R.</strong><span>Hogar y familia</span></div></article><article class="testimonial-card reveal"><div class="testimonial-card__stars">★★★★★</div><p>“La experiencia del carrito y la entrega es clara.”</p><div class="testimonial-card__person"><strong>Lucía P.</strong><span>Cliente premium</span></div></article></div></div></section>
 
-    <div id="authModal" class="modal" aria-hidden="true">
-      <div class="modal__card">
-        <button id="authClose" class="icon-btn modal-close" type="button" aria-label="Cerrar">✕</button>
-        <h3 id="authTitle">Iniciar sesión</h3>
-        <form id="authForm" class="auth-form">
-          <label>
-            Nombre
-            <input id="authName" type="text" placeholder="Tu nombre" />
-          </label>
-          <label>
-            Correo
-            <input id="authEmail" type="email" placeholder="tu@correo.com" />
-          </label>
-          <label>
-            Usuario o correo
-            <input id="authIdentifier" type="text" placeholder="Correo o usuario" />
-          </label>
-          <label>
-            Contraseña
-            <input id="authPassword" type="password" placeholder="••••••••" />
-          </label>
-          <button class="btn btn--primary btn--block" type="submit">Continuar</button>
-        </form>
-        <button id="authToggleMode" class="link-btn" type="button">¿No tienes cuenta? Regístrate</button>
-      </div>
-    </div>
+    <section class="help-section"><div class="container help-grid"><div class="help-card reveal"><span class="eyebrow">Atención</span><h2 class="section-title">Estamos para ayudarte</h2><ul class="contact-list"><li>+51 987 654 321</li><li>soporte@meilanys.pe</li><li>Lun a Dom · 7:00 a. m. a 10:00 p. m.</li></ul></div><div class="help-card reveal"><span class="eyebrow">Preguntas frecuentes</span><div class="faq-item"><strong>¿Cuánto tarda la entrega?</strong><p>Normalmente entregamos en 1 a 2 horas según la zona.</p></div><div class="faq-item"><strong>¿Puedo cambiar mi pedido?</strong><p>Sí, antes de que sea despachado.</p></div></div></div></section>
 
-    <div id="accountModal" class="modal" aria-hidden="true">
-      <div class="modal__card account-card">
-        <button id="accountClose" class="icon-btn modal-close" type="button" aria-label="Cerrar">✕</button>
-        <h3>Mi cuenta</h3>
-        <div id="accountPanel"></div>
-        <button id="accountLogoutBtn" class="btn btn--ghost btn--block" type="button">Cerrar sesión</button>
-      </div>
-    </div>
+    <section class="location-section"><div class="container location-grid"><div class="location-card reveal"><span class="eyebrow">Nuestra ubicación</span><h2 class="section-title">Visítanos en nuestra tienda</h2><p>Recoge tus compras o coordina delivery con total confianza.</p><ul class="location-details"><li><strong>Dirección:</strong> C. 8, Lima 15828</li><li><strong>Horario:</strong> Lunes a domingo · 7:00 a. m. a 10:00 p. m.</li></ul><div class="location-actions"><a class="btn btn--primary" href="https://maps.app.goo.gl/cCoFbP7yw3B4ZYodA" target="_blank" rel="noreferrer">Abrir en Google Maps</a></div></div><div class="location-map reveal"><iframe src="https://www.google.com/maps?q=-12.188634,-76.957334&z=16&output=embed" loading="lazy" title="Ubicación de Minimarket Meilanys"></iframe></div></div></section>
 
-    <div id="historyModal" class="modal" aria-hidden="true">
-      <div class="modal__card">
-        <button id="historyClose" class="icon-btn modal-close" type="button" aria-label="Cerrar">✕</button>
-        <h3>Historial</h3>
-        <div id="historyList" class="history-list"></div>
-      </div>
-    </div>
+    <section><div class="newsletter reveal"><h2>Únete a la lista de compras</h2><p>Recibe las ofertas de la semana y novedades de temporada.</p><form id="newsletterForm"><input type="email" required placeholder="tu@correo.com" id="newsletterEmail"><button type="submit" class="btn btn--primary">Suscribirme</button></form><p class="newsletter-success" id="newsletterSuccess" hidden>Listo, revisa tu correo para confirmar.</p></div></section>
+  </main>
 
-    <div id="deliveryModal" class="modal" aria-hidden="true">
-      <div class="modal__card">
-        <button id="deliveryClose" class="icon-btn modal-close" type="button" aria-label="Cerrar">✕</button>
-        <h3>Entrega y pago</h3>
-        <p>Recibe tu pedido en Lima y área metropolitana. Pago seguro con Mercado Pago.</p>
-        <button id="deliveryConfirm" class="btn btn--primary btn--block" type="button">Listo</button>
-      </div>
-    </div>
+  <footer class="footer"><div class="footer__grid"><div class="footer__about"><span class="logo"><span class="logo__mark">M</span><span class="logo__text" style="color:#fff">Minimarket Meilanys</span></span><p>Productos frescos, seleccionados a diario, directo a tu mesa.</p></div><div><h5>Categorías</h5><ul id="footerCategories"></ul></div><div><h5>Ayuda</h5><ul><li><a href="#categorias">Preguntas frecuentes</a></li><li><a href="#catalogo">Zonas de entrega</a></li><li><a href="#inicio">Contacto</a></li></ul></div><div><h5>Nosotros</h5><ul><li><a href="#inicio">Quiénes somos</a></li><li><a href="#ofertas">Ofertas</a></li></ul></div></div><div class="footer__bottom"><span>© 2026 Minimarket Meilanys. Todos los derechos reservados.</span><div class="payment-icons"><span>Tarjeta</span><span>Yape</span><span>Efectivo</span></div></div></footer>
 
-    <div id="toast" class="toast" aria-live="polite"></div>
+  <div class="overlay" id="overlay"></div>
+  <aside class="cart-drawer" id="cartDrawer" aria-label="Carrito de compras"><div class="cart-drawer__header"><h3>Tu carrito</h3><button id="cartCloseBtn" type="button" aria-label="Cerrar carrito">✕</button></div><div class="cart-items" id="cartItems"></div><div class="cart-drawer__footer" id="cartFooter"></div></aside>
 
-    <script type="module" src="./recursos/scripts/main.js"></script>
-  </body>
+  <div class="modal" id="deliveryModal" aria-hidden="true"><div class="modal__box"><button class="modal__close" id="deliveryClose" type="button" aria-label="Cerrar">✕</button><h3>¿Cómo quieres recibir tu pedido?</h3><label class="modal__option"><input type="radio" name="delivery" value="domicilio" checked> Delivery a domicilio</label><label class="modal__option"><input type="radio" name="delivery" value="tienda"> Recojo en tienda</label><button class="btn btn--primary btn--block" id="deliveryConfirm" type="button">Confirmar</button></div></div>
+  <div class="modal" id="authModal" aria-hidden="true"><div class="modal__box auth-modal__box"><button class="modal__close" id="authClose" type="button" aria-label="Cerrar">✕</button><div class="auth-modal__header"><span class="eyebrow">Cuenta</span><h3 id="authTitle">Iniciar sesión</h3></div><form id="authForm" class="auth-form"><label class="auth-field" id="authNameField"><span>Nombre</span><input id="authName" type="text" placeholder="Tu nombre"></label><label class="auth-field" id="authEmailField"><span>Correo</span><input id="authEmail" type="email" placeholder="tu@correo.com"></label><label class="auth-field"><span>Usuario o email</span><input id="authIdentifier" type="text" placeholder="Correo o usuario" required></label><label class="auth-field"><span>Contraseña</span><input id="authPassword" type="password" placeholder="Tu contraseña" required></label><button type="submit" class="btn btn--primary btn--block">Continuar</button><button type="button" class="auth-toggle" id="authToggleMode">Crear una cuenta</button></form></div></div>
+  <div class="modal" id="accountModal" aria-hidden="true"><div class="modal__box account-modal__box"><button class="modal__close" id="accountClose" type="button" aria-label="Cerrar cuenta">✕</button><div class="auth-modal__header"><span class="eyebrow">Cuenta</span><h3>Mi cuenta</h3></div><div class="account-menu"><button class="account-menu__item" data-account-panel="profile">Datos personales</button><button class="account-menu__item" data-account-panel="addresses">Direcciones</button><button class="account-menu__item" data-account-panel="payments">Medios de pago</button><button class="account-menu__item" data-account-panel="security">Configurar mi cuenta</button><button class="account-menu__item account-menu__item--danger" id="accountLogoutBtn">Cerrar sesión</button></div><div class="account-panel" id="accountPanel"></div></div></div>
+  <div class="modal" id="historyModal" aria-hidden="true"><div class="modal__box history-modal__box"><button class="modal__close" id="historyClose" type="button" aria-label="Cerrar historial">✕</button><div class="auth-modal__header"><span class="eyebrow">Compras</span><h3>Mi historial</h3></div><div class="history-list" id="historyList"></div></div></div>
+  <div class="toast" id="toast" aria-live="polite"></div>
+  <script type="module" src="./recursos/scripts/main.js"></script>
+</body>
 </html>
