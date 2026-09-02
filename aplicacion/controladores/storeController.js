@@ -631,8 +631,10 @@ export default class StoreController {
     // Menú Adaptativo Móvil
     if (mobileMenuBtn) {
       mobileMenuBtn.addEventListener('click', () => {
-        const nav = document.querySelector('.nav-main');
-        if (nav) nav.classList.toggle('active');
+        if (!catDropdown) return;
+        const isOpen = catDropdown.classList.toggle('open');
+        mobileMenuBtn.setAttribute('aria-expanded', String(isOpen));
+        if (isOpen) catDropdown.querySelector('a')?.focus();
       });
     }
 
