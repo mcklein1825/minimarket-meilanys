@@ -37,21 +37,11 @@ export default class StoreController {
   handlePaymentReturn() {
     const params = new URLSearchParams(window.location.search);
     const status = params.get('status');
-    const paymentId = params.get('payment_id');
-    const merchantOrderId = params.get('merchant_order_id');
-
     if (!status) return;
 
     if (status === 'success' || status === 'approved') {
-      this.registerSuccessfulOrder(paymentId || merchantOrderId);
-      this.model.clearCart();
-      this.view.renderCart(this.model.cart, this.model.products, this.model.fmt.bind(this.model));
-      this.view.showToast('¡Pago exitoso! Estamos preparando tu pedido 🚚');
-      
-      setTimeout(() => {
-        this.openHistoryIfLoggedIn();
-      }, 1500);
-
+      // La aprobación solo se considera válida después de verificarla en pago-exitoso.php.
+      this.view.showToast('Pago verificado. Estamos preparando tu pedido.');
     } else if (status === 'failure' || status === 'rejected') {
       this.view.showToast('El pago fue rechazado. Intenta con otra tarjeta.');
     } else if (status === 'pending' || status === 'in_process') {
@@ -60,40 +50,6 @@ export default class StoreController {
 
     // Limpia los parámetros de la URL para evitar ejecuciones duplicadas al recargar
     window.history.replaceState({}, document.title, window.location.pathname);
-  }
-
-  registerSuccessfulOrder(paymentId) {
-    const user = this.model.getCurrentUser();
-    if (!user) return;
-
-    const orderItems = Object.keys(this.model.cart).map(id => {
-      const prod = this.model.products.find(p => String(p.id) === String(id));
-      if (!prod) return null;
-      return {
-        id: prod.id,
-        nombre: prod.nombre,
-        precio: prod.precio,
-        cantidad: this.model.cart[id],
-        subtotal: prod.precio * this.model.cart[id]
-      };
-    }).filter(Boolean);
-
-    if (orderItems.length === 0) return;
-
-    const total = orderItems.reduce((sum, item) => sum + item.subtotal, 0);
-
-    const newOrder = {
-      id_pedido: paymentId || 'MP-' + Math.floor(100000 + Math.random() * 900000),
-      fecha: new Date().toISOString(),
-      estado: 'Pagado - En preparación',
-      total: total,
-      metodo_pago: 'Mercado Pago',
-      items: orderItems
-    };
-
-    if (typeof this.model.saveOrder === 'function') {
-      this.model.saveOrder(user, newOrder);
-    }
   }
 
   // --- MÉTODOS DE RENDER Y VISTA ---
@@ -379,7 +335,7 @@ export default class StoreController {
     this.view.renderAccountPanel(user, panel, this.model.getAccountDataForCurrentUser());
   }
 
-  handleProfileSave(e) {
+  async handleProfileSave(e) {
     e.preventDefault();
     const data = this.model.getAccountDataForCurrentUser();
     if (!data) return;
@@ -402,10 +358,14 @@ export default class StoreController {
       dni: dni || ''
     };
 
-    this.model.saveCurrentUserAccountData(data);
-    this.model.updateUserSessionFromProfile(data.profile);
-    this.updateUI();
-    this.view.showToast('Perfil actualizado con éxito');
+    try {
+      await this.model.updateUserSessionFromProfile(data.profile);
+      this.model.saveCurrentUserAccountData(data);
+      this.updateUI();
+      this.view.showToast('Perfil actualizado con éxito');
+    } catch (error) {
+      this.view.showToast(error.message || 'No se pudo actualizar el perfil');
+    }
   }
 
   handleAddressSave(e) {
