@@ -74,8 +74,8 @@ export default class StoreView {
     const hasDiscount = !!prod.precioAnterior;
     const imageUrl = prod.imagen_url || prod.image_url || prod.foto || '';
     const mediaMarkup = imageUrl
-      ? `<img src="${imageUrl}" alt="${prod.nombre}" class="product-card__img" loading="lazy" onerror="this.style.display='none';this.parentElement.innerHTML='<span>${prod.icono || '📦'}</span>'">`
-      : `<span>${prod.icono || '📦'}</span>`;
+      ? `<img src="${imageUrl}" alt="${prod.nombre}" class="product-card__img" loading="lazy" onerror="this.style.display='none';this.parentElement.innerHTML='<span>Producto</span>'">`
+      : '<span>Producto</span>';
 
     return `
       <article class="product-card" data-id="${prod.id}">
@@ -83,11 +83,11 @@ export default class StoreView {
         <div class="price-tag ${hasDiscount ? 'sale' : ''}">${fmt(prod.precio)}</div>
         <h3 class="product-card__name">${prod.nombre}</h3>
         <span class="product-card__unit">por ${prod.unidad || 'unidad'}</span>
-        <span class="product-card__rating">⭐ ${prod.rating || '4.8'}</span>
+        <span class="product-card__rating">Rating ${prod.rating || '4.8'}</span>
         <div class="product-card__prices">
           ${hasDiscount ? `<span class="price-old">${fmt(prod.precioAnterior)}</span>` : ''}
         </div>
-        <button class="add-btn" data-id="${prod.id}">🛒 Agregar</button>
+        <button class="add-btn" data-id="${prod.id}">Agregar</button>
       </article>
     `;
   }
@@ -193,7 +193,9 @@ export default class StoreView {
       subtotal += prod.precio * qty;
       return `
         <div class="cart-item" data-cart-id="${id}">
-          <div class="cart-item__media">${prod.icono || '📦'}</div>
+          <div class="cart-item__media">${prod.imagen_url
+            ? `<img src="${prod.imagen_url}" alt="${prod.nombre}" loading="lazy" onerror="this.style.display='none'">`
+            : '<span>Producto</span>'}</div>
           <div>
             <div class="cart-item__name">${prod.nombre}</div>
             <div class="cart-item__price">${fmt(prod.precio)} / ${prod.unidad}</div>
