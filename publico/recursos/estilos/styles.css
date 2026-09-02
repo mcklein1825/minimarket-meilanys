@@ -830,10 +830,12 @@ body{background:var(--fondo);}
 
 @media (max-width:860px){
   .header__inner{grid-template-columns:auto 1fr auto;align-items:center;}
-  .categories-nav{display:block;position:static;order:4;}
+  .categories-nav{
+    display:block;position:relative;order:5;grid-column:1 / -1;height:1px;
+  }
   .categories-toggle{display:none;}
   .categories-dropdown{
-    top:100%;left:18px;right:18px;width:auto;grid-template-columns:repeat(2,minmax(0,1fr));
+    top:0;left:0;right:0;width:auto;grid-template-columns:repeat(2,minmax(0,1fr));
     padding:12px;max-height:calc(100vh - 150px);overflow:auto;border-radius:0 0 14px 14px;
     box-shadow:0 16px 28px rgba(18,61,53,.16);z-index:80;
   }
