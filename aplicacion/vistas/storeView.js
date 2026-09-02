@@ -41,6 +41,7 @@ export default class StoreView {
       authClose: document.getElementById('authClose'),
       authToggleMode: document.getElementById('authToggleMode'),
       accountBtn: document.getElementById('cuentaBtn'),
+      headerActions: document.querySelector('.header-actions'),
       accountModal: document.getElementById('accountModal'),
       accountPanel: document.getElementById('accountPanel'),
       accountLogoutBtn: document.getElementById('accountLogoutBtn'),
