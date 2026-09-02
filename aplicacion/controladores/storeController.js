@@ -76,7 +76,7 @@ export default class StoreController {
     this.view.renderCategoryGrid(this.model.categories, this.currentFilter);
     this.view.renderFilterTabs(this.model.categories, this.currentFilter);
     this.view.renderOffers(this.model.products, this.model.fmt.bind(this.model));
-    this.view.renderProducts(this.model.products, this.currentFilter, this.searchTerm, this.model.fmt.bind(this.model));
+    this.view.renderProducts(this.model.products, this.model.categories, this.currentFilter, this.searchTerm, this.model.fmt.bind(this.model));
     this.view.renderCart(this.model.cart, this.model.products, this.model.fmt.bind(this.model));
     this.view.syncCheckoutButton(currentUser);
     this.view.renderFooterCategories(this.model.categories);
@@ -91,12 +91,12 @@ export default class StoreController {
     this.currentFilter = cat;
     this.view.renderCategoryGrid(this.model.categories, this.currentFilter);
     this.view.renderFilterTabs(this.model.categories, this.currentFilter);
-    this.view.renderProducts(this.model.products, this.currentFilter, this.searchTerm, this.model.fmt.bind(this.model));
+    this.view.renderProducts(this.model.products, this.model.categories, this.currentFilter, this.searchTerm, this.model.fmt.bind(this.model));
   }
 
   setSearch(term) {
     this.searchTerm = term.trim();
-    this.view.renderProducts(this.model.products, this.currentFilter, this.searchTerm, this.model.fmt.bind(this.model));
+    this.view.renderProducts(this.model.products, this.model.categories, this.currentFilter, this.searchTerm, this.model.fmt.bind(this.model));
   }
 
   // --- OPERACIONES DE CARRITO ---
