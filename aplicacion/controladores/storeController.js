@@ -628,17 +628,6 @@ export default class StoreController {
       if (e.target.id === 'refundForm') this.handleRefundSave(e);
     });
 
-    // Menú Adaptativo Móvil
-    if (mobileMenuBtn) {
-      mobileMenuBtn.addEventListener('click', () => {
-        const isOpen = this.view.elements.header.classList.toggle('mobile-menu-open');
-        mobileMenuBtn.setAttribute('aria-expanded', String(isOpen));
-        if (isOpen) {
-          this.view.elements.headerActions?.querySelector('.action-btn')?.focus();
-        }
-      });
-    }
-
     // Cierre de menús flotantes al hacer clic fuera
     document.addEventListener('click', (e) => {
       if (
