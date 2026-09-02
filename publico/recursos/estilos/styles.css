@@ -873,6 +873,7 @@ body{background:var(--fondo);}
   .header-actions{display:flex;}
   .header:not(.mobile-menu-open) .header-actions .action-btn:not(.cart-btn){display:none;}
   .header.mobile-menu-open .header-actions{display:grid;}
+  .header.mobile-menu-open .header-actions .action-btn{display:flex;}
   .header{position:relative;}
   .header.mobile-menu-open .header-actions{
     grid-template-columns:repeat(4,minmax(0,1fr));right:18px;left:18px;padding:12px;
