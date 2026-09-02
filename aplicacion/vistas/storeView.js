@@ -111,7 +111,7 @@ export default class StoreView {
 
   renderCategoryGrid(categories, currentFilter) {
     this.elements.categoryGrid.innerHTML = categories.map((c) => `
-      <button class="category-card ${currentFilter === c.id ? 'active' : ''}" data-cat="${c.id}">
+      <button class="category-card ${String(currentFilter) === String(c.id) ? 'active' : ''}" data-cat="${c.id}">
         <span class="category-card__label">${c.nombre}</span>
       </button>
     `).join('');
@@ -120,7 +120,7 @@ export default class StoreView {
   renderFilterTabs(categories, currentFilter) {
     const tabs = [{ id: 'todos', nombre: 'Todos' }, ...categories];
     this.elements.filterTabs.innerHTML = tabs.map((c) => `
-      <button class="filter-tab ${currentFilter === c.id ? 'active' : ''}" data-cat="${c.id}">${c.nombre}</button>
+      <button class="filter-tab ${String(currentFilter) === String(c.id) ? 'active' : ''}" data-cat="${c.id}">${c.nombre}</button>
     `).join('');
   }
 
@@ -129,10 +129,12 @@ export default class StoreView {
     this.elements.offersGrid.innerHTML = offers.map((product) => this.productCardHTML(product, fmt)).join('');
   }
 
-  renderProducts(products, currentFilter, searchTerm, fmt) {
+  renderProducts(products, categories, currentFilter, searchTerm, fmt) {
     let list = [...products];
     if (currentFilter !== 'todos') {
-      list = list.filter((pr) => pr.categoria === currentFilter);
+      const selectedCategory = categories.find((category) => String(category.id) === String(currentFilter));
+      const categoryName = selectedCategory?.nombre || currentFilter;
+      list = list.filter((pr) => String(pr.categoria || '').trim().toLowerCase() === String(categoryName).trim().toLowerCase());
     }
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
@@ -548,6 +550,4 @@ export default class StoreView {
   renderFooterCategories(categories) {
     this.elements.footerCategories.innerHTML = categories.slice(0, 6).map((c) =>
       `<li><a href="#categorias" data-cat="${c.id}" class="footer-cat-link">${c.nombre}</a></li>`
-    ).join('');
-  }
-}
+ 
