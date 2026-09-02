@@ -812,3 +812,17 @@ body{background:var(--fondo);}
   .catalog-search input{width:100%;}
   .newsletter{margin:42px 16px;}
 }
+
+/* Señalética sobria: iconos geométricos, sin emojis de sistema. */
+.action-btn .ico{position:relative;width:20px;height:20px;display:block;font-size:0;color:#123d35;}
+.ico--delivery::before{content:"";position:absolute;left:2px;top:7px;width:14px;height:8px;border:1.8px solid currentColor;border-radius:2px;}
+.ico--delivery::after{content:"••";position:absolute;left:3px;top:5px;font-size:14px;letter-spacing:5px;line-height:16px;}
+.ico--lists::before{content:"";position:absolute;inset:2px 4px;border:1.8px solid currentColor;border-radius:2px;}
+.ico--lists::after{content:"";position:absolute;left:7px;top:7px;width:7px;height:1.5px;background:currentColor;box-shadow:0 4px currentColor;}
+.ico--account::before{content:"";position:absolute;left:7px;top:1px;width:7px;height:7px;border:1.8px solid currentColor;border-radius:50%;}
+.ico--account::after{content:"";position:absolute;left:4px;bottom:1px;width:13px;height:7px;border:1.8px solid currentColor;border-radius:9px 9px 3px 3px;}
+.ico--cart::before{content:"";position:absolute;left:3px;top:4px;width:13px;height:10px;border:1.8px solid currentColor;border-top:0;transform:skew(-8deg);}
+.ico--cart::after{content:"••";position:absolute;left:5px;top:9px;font-size:14px;letter-spacing:5px;line-height:14px;}
+.search button::before{content:"";width:11px;height:11px;border:1.7px solid #fff;border-radius:50%;}
+.search button::after{content:"";position:absolute;width:6px;height:1.7px;background:#fff;transform:translate(6px,6px) rotate(45deg);}
+.search button{position:relative;}
