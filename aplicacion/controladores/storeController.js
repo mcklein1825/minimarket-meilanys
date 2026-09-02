@@ -640,8 +640,16 @@ export default class StoreController {
 
     // Cierre de menús flotantes al hacer clic fuera
     document.addEventListener('click', (e) => {
-      if (catDropdown && catToggle && !catDropdown.contains(e.target) && !catToggle.contains(e.target)) {
+      if (
+        catDropdown &&
+        catToggle &&
+        mobileMenuBtn &&
+        !catDropdown.contains(e.target) &&
+        !catToggle.contains(e.target) &&
+        !mobileMenuBtn.contains(e.target)
+      ) {
         catDropdown.classList.remove('open');
+        mobileMenuBtn.setAttribute('aria-expanded', 'false');
       }
     });
   }
