@@ -226,7 +226,13 @@ export default class StoreController {
           metodo_pago: 'mercado_pago'
         })
       });
-      const orderData = await orderResponse.json();
+      const orderText = await orderResponse.text();
+      let orderData;
+      try {
+        orderData = JSON.parse(orderText);
+      } catch (parseError) {
+        throw new Error('El servidor no devolvió una respuesta válida al guardar el pedido.');
+      }
       if (!orderResponse.ok || !orderData.ok) {
         throw new Error(orderData.error || 'No se pudo registrar el pedido.');
       }
