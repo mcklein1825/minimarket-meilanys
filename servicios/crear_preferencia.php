@@ -59,6 +59,7 @@ if (!$input) {
 
 $rawItems   = $input['items'] ?? [];
 $payerEmail = trim($input['payerEmail'] ?? '');
+$externalReference = trim((string)($input['externalReference'] ?? ''));
 
 if (empty($rawItems)) {
     http_response_code(400);
@@ -94,7 +95,8 @@ $payload = [
         'failure' => defined('MP_FAILURE_URL') ? MP_FAILURE_URL : '',
         'pending' => defined('MP_PENDING_URL') ? MP_PENDING_URL : ''
     ],
-    'auto_return' => 'approved'
+    'auto_return' => 'approved',
+    'external_reference' => $externalReference
 ];
 
 // 8. Petición cURL a la API de Mercado Pago
