@@ -203,11 +203,38 @@ export default class StoreController {
     try {
       this.isProcessingCheckout = true;
       this.view.showToast('Generando pasarela de pago...');
+      const orderId = `MEI-${Date.now()}-${user.id}`;
+      const orderItems = ids.map((id) => {
+        const product = this.model.products.find((pr) => String(pr.id) === String(id));
+        if (!product) return null;
+        return {
+          product_id: Number(id),
+          quantity: Number(this.model.cart[id]),
+          unit_price: Number(product.precio)
+        };
+      }).filter(Boolean);
+      const orderTotal = orderItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+
+      const orderResponse = await fetch('../servicios/crear_pedido.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          id_pedido: orderId,
+          items: orderItems,
+          total: orderTotal,
+          metodo_pago: 'mercado_pago'
+        })
+      });
+      const orderData = await orderResponse.json();
+      if (!orderResponse.ok || !orderData.ok) {
+        throw new Error(orderData.error || 'No se pudo registrar el pedido.');
+      }
 
       const response = await fetch('../servicios/crear_preferencia.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items, payerEmail: user.email || user.correo })
+        body: JSON.stringify({ items, payerEmail: user.email || user.correo, externalReference: orderId })
       });
 
       const responseText = await response.text();
