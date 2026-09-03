@@ -185,6 +185,7 @@ export default class StoreView {
       if (!this.elements.cartFooter?.querySelector('#checkoutBtn')) {
         this.resetCartFooter();
       }
+      this.elements.cartSubtotal = this.elements.cartFooter?.querySelector('#cartSubtotal') || this.elements.cartSubtotal;
       if (this.elements.cartSubtotal) this.elements.cartSubtotal.textContent = fmt(0);
       return;
     }
@@ -216,6 +217,7 @@ export default class StoreView {
     if (!this.elements.cartFooter?.querySelector('#checkoutBtn')) {
       this.resetCartFooter();
     }
+    this.elements.cartSubtotal = this.elements.cartFooter?.querySelector('#cartSubtotal') || this.elements.cartSubtotal;
     if (this.elements.cartSubtotal) this.elements.cartSubtotal.textContent = fmt(subtotal);
   }
 
@@ -551,6 +553,4 @@ export default class StoreView {
     const footerItems = categories.slice(0, 6).map((category) => {
       return `<li><a href="#categorias" data-cat="${category.id}" class="footer-cat-link">${category.nombre}</a></li>`;
     });
-    this.elements.footerCategories.innerHTML = footerItems.join('');
-  }
-}
+ 
