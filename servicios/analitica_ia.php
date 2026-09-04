@@ -9,7 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     exit;
 }
 
-if (empty($_SESSION['user_id'])) {
+if (empty($_SESSION['user_id']) || !in_array($_SESSION['user_role'] ?? '', ['dueno', 'encargado', 'trabajador'], true)) {
     http_response_code(401);
     echo json_encode(['error' => 'Debes iniciar sesión para consultar la analítica.']);
     exit;
