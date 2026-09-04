@@ -553,4 +553,6 @@ export default class StoreView {
     const footerItems = categories.slice(0, 6).map((category) => {
       return `<li><a href="#categorias" data-cat="${category.id}" class="footer-cat-link">${category.nombre}</a></li>`;
     });
- 
+    this.elements.footerCategories.innerHTML = footerItems.join('');
+  }
+}
