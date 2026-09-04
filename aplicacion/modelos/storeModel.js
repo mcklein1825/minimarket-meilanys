@@ -151,6 +151,7 @@ export default class StoreModel {
         email: result.user.email,
         nombre: result.user.nombre,
         username: result.user.email || result.user.nombre
+        , rol: result.user.rol || 'cliente'
       };
 
       localStorage.setItem('meilanys_current_session', JSON.stringify(this.currentUser));
@@ -186,6 +187,7 @@ export default class StoreModel {
         email: result.user.email,
         nombre: result.user.nombre,
         username: result.user.email || result.user.nombre
+        , rol: result.user.rol || 'cliente'
       };
 
       localStorage.setItem('meilanys_current_session', JSON.stringify(this.currentUser));
