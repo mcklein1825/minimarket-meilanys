@@ -22,18 +22,21 @@ function respond($status, $payload) {
 
 function tableColumns($pdo, $table) {
     $stmt = $pdo->prepare(
-        "SELECT column_name FROM information_schema.columns
-         WHERE table_schema = current_schema() AND table_name = ?"
+        "SELECT column_name, data_type FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = ?
+         ORDER BY ordinal_position"
     );
     $stmt->execute([$table]);
-    return array_map(static function ($row) {
-        return $row['column_name'];
-    }, $stmt->fetchAll());
+    $columns = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $columns[$row['column_name']] = $row['data_type'];
+    }
+    return $columns;
 }
 
 function requiredColumn(array $columns, array $candidates, $table) {
     foreach ($candidates as $candidate) {
-        if (in_array($candidate, $columns, true)) {
+        if (array_key_exists($candidate, $columns)) {
             return $candidate;
         }
     }
@@ -81,7 +84,11 @@ try {
     $order->execute([$orderId, (int)$_SESSION['user_id'], $total, 'pendiente', $paymentMethod]);
 
     $detailOrderValue = $orderId;
-    if ($detailOrderColumn === 'pedido_id' && in_array('id', $orderColumns, true)) {
+    $detailOrderType = $detailColumns[$detailOrderColumn] ?? '';
+    $usesNumericOrderReference = in_array($detailOrderType, [
+        'smallint', 'integer', 'bigint'
+    ], true);
+    if ($usesNumericOrderReference && array_key_exists('id', $orderColumns)) {
         $parent = $pdo->prepare("SELECT id FROM pedidos WHERE {$orderIdColumn} = ? LIMIT 1");
         $parent->execute([$orderId]);
         $parentId = $parent->fetchColumn();
@@ -91,26 +98,19 @@ try {
         $detailOrderValue = (int)$parentId;
     }
 
-    $detail = $pdo->prepare(
-        "INSERT INTO detalle_pedidos ({$detailOrderColumn}, {$detailProductColumn}, {$detailQuantityColumn}, {$detailPriceColumn})
-         VALUES (?, ?, ?, ?)"
-    );
-    foreach ($items as $item) {
-        $productId = (int)($item['product_id'] ?? 0);
-        $quantity = (int)($item['quantity'] ?? 0);
-        $unitPrice = (float)($item['unit_price'] ?? 0);
-        if ($productId <= 0 || $quantity <= 0 || $unitPrice < 0) {
-            throw new InvalidArgumentException('Un producto del pedido no es válido.');
+    $detailSubtotalColumn = null;
+    foreach (['subtotal', 'total', 'importe'] as $candidate) {
+        if (array_key_exists($candidate, $detailColumns)) {
+            $detailSubtotalColumn = $candidate;
+            break;
         }
-        $detail->execute([$detailOrderValue, $productId, $quantity, $unitPrice]);
     }
 
-    $pdo->commit();
-    respond(201, ['ok' => true, 'id_pedido' => $orderId]);
-} catch (Throwable $error) {
-    if ($pdo->inTransaction()) {
-        $pdo->rollBack();
-    }
-    error_log('Error al crear pedido: ' . $error->getMessage());
-    respond(500, ['error' => 'No se pudo guardar el pedido.']);
-}
+    $detailColumnsToInsert = [
+        $detailOrderColumn,
+        $detailProductColumn,
+        $detailQuantityColumn,
+        $detailPriceColumn
+    ];
+    if ($detailSubtotalColumn !== null) {
+        $detailColumnsToInsert[] = $detailSubtotalColumn;
