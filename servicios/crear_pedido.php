@@ -114,3 +114,31 @@ try {
     ];
     if ($detailSubtotalColumn !== null) {
         $detailColumnsToInsert[] = $detailSubtotalColumn;
+    }
+    $placeholders = implode(', ', array_fill(0, count($detailColumnsToInsert), '?'));
+    $detail = $pdo->prepare(
+        'INSERT INTO detalle_pedidos (' . implode(', ', $detailColumnsToInsert) . ') VALUES (' . $placeholders . ')'
+    );
+    foreach ($items as $item) {
+        $productId = (int)($item['product_id'] ?? 0);
+        $quantity = (int)($item['quantity'] ?? 0);
+        $unitPrice = (float)($item['unit_price'] ?? 0);
+        if ($productId <= 0 || $quantity <= 0 || $unitPrice < 0) {
+            throw new InvalidArgumentException('Un producto del pedido no es válido.');
+        }
+        $values = [$detailOrderValue, $productId, $quantity, $unitPrice];
+        if ($detailSubtotalColumn !== null) {
+            $values[] = $quantity * $unitPrice;
+        }
+        $detail->execute($values);
+    }
+
+    $pdo->commit();
+    respond(201, ['ok' => true, 'id_pedido' => $orderId]);
+} catch (Throwable $error) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    error_log('Error al crear pedido: ' . $error->getMessage());
+    respond(500, ['error' => 'No se pudo guardar el pedido.']);
+}
