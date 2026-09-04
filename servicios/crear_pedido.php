@@ -64,6 +64,7 @@ if ($orderId === '' || !is_array($items) || count($items) === 0 || $total <= 0) 
 try {
     $orderColumns = tableColumns($pdo, 'pedidos');
     $detailColumns = tableColumns($pdo, 'detalle_pedidos');
+    $productColumns = tableColumns($pdo, 'productos');
     $orderIdColumn = requiredColumn($orderColumns, ['id_pedido', 'pedido_id'], 'pedidos');
     $userColumn = requiredColumn($orderColumns, ['usuario_id', 'user_id'], 'pedidos');
     $dateColumn = requiredColumn($orderColumns, ['fecha', 'created_at'], 'pedidos');
@@ -74,6 +75,14 @@ try {
     $detailProductColumn = requiredColumn($detailColumns, ['producto_id', 'id_producto', 'product_id'], 'detalle_pedidos');
     $detailQuantityColumn = requiredColumn($detailColumns, ['cantidad', 'quantity'], 'detalle_pedidos');
     $detailPriceColumn = requiredColumn($detailColumns, ['precio_unitario', 'precio', 'unit_price'], 'detalle_pedidos');
+    $detailNameColumn = null;
+    foreach (['nombre_producto', 'nombre', 'product_name'] as $candidate) {
+        if (array_key_exists($candidate, $detailColumns)) {
+            $detailNameColumn = $candidate;
+            break;
+        }
+    }
+    $productNameColumn = requiredColumn($productColumns, ['nombre', 'nombre_producto', 'name'], 'productos');
 
     $pdo->beginTransaction();
 
@@ -109,9 +118,12 @@ try {
     $detailColumnsToInsert = [
         $detailOrderColumn,
         $detailProductColumn,
-        $detailQuantityColumn,
-        $detailPriceColumn
+        $detailQuantityColumn
     ];
+    if ($detailNameColumn !== null) {
+        $detailColumnsToInsert[] = $detailNameColumn;
+    }
+    $detailColumnsToInsert[] = $detailPriceColumn;
     if ($detailSubtotalColumn !== null) {
         $detailColumnsToInsert[] = $detailSubtotalColumn;
     }
@@ -126,7 +138,20 @@ try {
         if ($productId <= 0 || $quantity <= 0 || $unitPrice < 0) {
             throw new InvalidArgumentException('Un producto del pedido no es válido.');
         }
-        $values = [$detailOrderValue, $productId, $quantity, $unitPrice];
+        $product = $pdo->prepare(
+            "SELECT {$productNameColumn} FROM productos WHERE id = ? LIMIT 1"
+        );
+        $product->execute([$productId]);
+        $productName = $product->fetchColumn();
+        if ($productName === false) {
+            throw new InvalidArgumentException('El producto del pedido ya no está disponible.');
+        }
+
+        $values = [$detailOrderValue, $productId, $quantity];
+        if ($detailNameColumn !== null) {
+            $values[] = (string)$productName;
+        }
+        $values[] = $unitPrice;
         if ($detailSubtotalColumn !== null) {
             $values[] = $quantity * $unitPrice;
         }
