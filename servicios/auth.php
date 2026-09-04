@@ -21,7 +21,7 @@ function userExistsByEmail($pdo, $email) {
 }
 
 function resolveUserRecord($pdo, $identifier) {
-    $stmt = $pdo->prepare('SELECT id, nombre, correo, password FROM usuarios WHERE LOWER(correo) = LOWER(?) OR LOWER(nombre) = LOWER(?) LIMIT 1');
+    $stmt = $pdo->prepare('SELECT id, nombre, correo, password, rol FROM usuarios WHERE LOWER(correo) = LOWER(?) OR LOWER(nombre) = LOWER(?) LIMIT 1');
     $stmt->execute([$identifier, $identifier]);
     return $stmt->fetch();
 }
@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         respondJson(200, ['user' => null]);
     }
 
-    $stmt = $pdo->prepare('SELECT id, nombre, correo FROM usuarios WHERE id = ? LIMIT 1');
+    $stmt = $pdo->prepare('SELECT id, nombre, correo, rol FROM usuarios WHERE id = ? LIMIT 1');
     $stmt->execute([$_SESSION['user_id']]);
     $user = $stmt->fetch();
 
@@ -42,10 +42,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
 
     $email = $user['correo'];
+    $_SESSION['user_role'] = $user['rol'] ?? 'cliente';
     respondJson(200, ['user' => [
         'id' => (int)$user['id'],
         'nombre' => $user['nombre'],
-        'email' => $email
+        'email' => $email,
+        'rol' => $user['rol'] ?? 'cliente'
     ]]);
 }
 
@@ -86,7 +88,8 @@ if ($action === 'update_profile') {
     respondJson(200, ['user' => [
         'id' => (int)$_SESSION['user_id'],
         'nombre' => $nombre,
-        'email' => $email
+        'email' => $email,
+        'rol' => $_SESSION['user_role'] ?? 'cliente'
     ]]);
 }
 
@@ -121,11 +124,13 @@ if ($action === 'register') {
 
     $_SESSION['user_id'] = (int)$user['id'];
     $_SESSION['user_name'] = $user['nombre'];
+    $_SESSION['user_role'] = $user['rol'] ?? 'cliente';
 
     respondJson(201, ['user' => [
         'id' => (int)$user['id'],
         'nombre' => $user['nombre'],
-        'email' => $user['correo']
+        'email' => $user['correo'],
+        'rol' => $user['rol'] ?? 'cliente'
     ]]);
 }
 
@@ -156,9 +161,4 @@ if ($user && !password_get_info($storedPassword)['algo']) {
 
 $_SESSION['user_id'] = (int)$user['id'];
 $_SESSION['user_name'] = $user['nombre'];
-
-respondJson(200, ['user' => [
-    'id' => (int)$user['id'],
-    'nombre' => $user['nombre'],
-    'email' => $user['correo']
-]]);
+$_SE
