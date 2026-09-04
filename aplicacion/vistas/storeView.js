@@ -242,6 +242,9 @@ export default class StoreView {
     const cuentaBtn = this.elements.accountBtn;
     const label = cuentaBtn.querySelector('.label');
     if (!label) return;
+    document.querySelectorAll('.business-link').forEach((link) => {
+      link.hidden = !user || !['dueno', 'encargado', 'trabajador'].includes(user.rol);
+    });
     if (user) {
       label.textContent = user.nombre.split(' ')[0];
       cuentaBtn.classList.add('is-user');
