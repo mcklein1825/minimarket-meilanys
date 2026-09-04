@@ -90,6 +90,15 @@ export default class StoreModel {
     return historyMap[userKey] || [];
   }
 
+  async fetchOrderHistory() {
+    const response = await fetch('../servicios/obtener_pedidos.php', {
+      credentials: 'same-origin'
+    });
+    if (!response.ok) throw new Error('No se pudo cargar el historial.');
+    const data = await response.json();
+    return Array.isArray(data.pedidos) ? data.pedidos : [];
+  }
+
   // --- Sesión y Carrito (Usando tu tabla 'usuarios' y localStorage) ---
   clearCart() {
     this.cart = {};
@@ -241,11 +250,28 @@ export default class StoreModel {
     if (!this.currentUser) return;
 
     try {
-      this.currentUser.nombre = profile.nombre;
-      this.currentUser.email = profile.email;
+      const response = await fetch('../servicios/auth.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          action: 'update_profile',
+          nombre: profile.nombre,
+          email: profile.email
+        })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.user) {
+        throw new Error(result.error || 'No se pudo actualizar el perfil.');
+      }
+
+      this.currentUser.nombre = result.user.nombre;
+      this.currentUser.email = result.user.email;
       localStorage.setItem('meilanys_current_session', JSON.stringify(this.currentUser));
+      return this.currentUser;
     } catch (error) {
       console.error('Error en updateUserSessionFromProfile:', error);
+      throw error;
     }
   }
 
