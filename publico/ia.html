@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analítica de ventas | Minimarket Meilanys</title>
+  <link rel="stylesheet" href="./recursos/estilos/styles.css">
+  <style>
+    body { background: #f5f4ee; padding: 32px; }
+    .ai-dashboard { max-width: 1100px; margin: 0 auto; }
+    .ai-cards, .ai-columns { display: grid; gap: 16px; }
+    .ai-cards { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+    .ai-columns { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); margin-top: 20px; }
+    .ai-card, .ai-panel { background: #fff; border: 1px solid #dfe5df; border-radius: 14px; padding: 20px; }
+    .ai-card strong { display: block; font-size: 1.5rem; color: #0f4c45; margin-top: 8px; }
+    .ai-panel img { max-width: 100%; height: auto; }
+    .ai-list { padding-left: 20px; line-height: 1.8; }
+    .ai-error { color: #a33; }
+  </style>
+</head>
+<body>
+  <main class="ai-dashboard">
+    <a href="./index.html">Volver a la tienda</a>
+    <p class="eyebrow">Inteligencia artificial</p>
+    <h1>Analítica de ventas</h1>
+    <p id="status">Cargando datos...</p>
+    <section class="ai-cards" id="summary"></section>
+    <div class="ai-columns">
+      <section class="ai-panel"><h2>Demanda por producto</h2><div id="products"></div></section>
+      <section class="ai-panel"><h2>Productos relacionados</h2><ul class="ai-list" id="recommendations"></ul></section>
+    </div>
+    <section class="ai-panel" style="margin-top:20px"><h2>Ventas diarias</h2><div id="chart"></div></section>
+  </main>
+  <script type="module">
+    const status = document.getElementById('status');
+    const format = value => new Intl.NumberFormat('es-PE', { maximumFractionDigits: 2 }).format(value ?? 0);
+    fetch('../servicios/analitica_ia.php', { credentials: 'same-origin' })
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'No se pudo cargar la analítica.');
+        return data;
+      })
+      .then(data => {
+        const summary = data.summary || {};
+        const cards = [
+          ['Pedidos analizados', summary.pedidos_analizados],
+          ['Unidades vendidas', summary.unidades_vendidas],
+          ['Ingresos', `S/ ${format(summary.ingresos)}`],
+          ['Promedio diario', format(summary.promedio_diario)],
+          ['Varianza diaria', format(summary.varianza_diaria)],
+          ['Demanda estimada mañana', summary.demanda_manana === null ? 'Datos insuficientes' : format(summary.demanda_manana)]
+        ];
+        document.getElementById('summary').innerHTML = cards.map(([label, value]) => `<article class="ai-card"><span>${label}</span><strong>${value}</strong></article>`).join('');
+        document.getElementById('products').innerHTML = (data.products || []).map(product => `<p><strong>${product.nombre_producto}</strong><br>${format(product.unidades)} unidades · estimación: ${format(product.demanda_estimada)} por día</p>`).join('') || '<p>No hay ventas registradas.</p>';
+        document.getElementById('recommendations').innerHTML = (data.recommendations || []).map(item => `<li>${item.productos} (${item.compras_juntas} compras)</li>`).join('') || '<li>Aún no hay suficientes compras combinadas.</li>';
+        if (data.chart) document.getElementById('chart').innerHTML = `<img alt="Gráfico de ventas diarias" src="data:image/png;base64,${data.chart}">`;
+        status.textContent = 'Datos generados con Pandas, NumPy y Scikit-learn.';
+      })
+      .catch(error => { status.textContent = error.message; status.className = 'ai-error'; });
+  </script>
+</body>
+</html>
