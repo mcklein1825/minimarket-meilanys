@@ -161,4 +161,11 @@ if ($user && !password_get_info($storedPassword)['algo']) {
 
 $_SESSION['user_id'] = (int)$user['id'];
 $_SESSION['user_name'] = $user['nombre'];
-$_SE
+$_SESSION['user_role'] = $user['rol'] ?? 'cliente';
+
+respondJson(200, ['user' => [
+    'id' => (int)$user['id'],
+    'nombre' => $user['nombre'],
+    'email' => $user['correo'],
+    'rol' => $user['rol'] ?? 'cliente'
+]]);
