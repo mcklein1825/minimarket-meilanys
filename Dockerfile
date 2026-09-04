@@ -1,11 +1,12 @@
 FROM php:8.2-cli
 
 # Instalar las librerías del sistema necesarias y la extensión pdo_pgsql para Supabase
-RUN apt-get update && apt-get install -y libpq-dev \
+RUN apt-get update && apt-get install -y libpq-dev python3 python3-pip \
     && docker-php-ext-install pdo_pgsql
 
 WORKDIR /app
 COPY . /app
+RUN pip3 install --no-cache-dir --break-system-packages -r /app/ia/requirements.txt
 
 EXPOSE 10000
 
