@@ -677,4 +677,10 @@ export default class StoreController {
         !catToggle.contains(e.target) &&
         !mobileMenuBtn.contains(e.target)
       ) {
- 
+        catDropdown.classList.remove('open');
+        mobileMenuBtn.setAttribute('aria-expanded', 'false');
+        this.view.elements.header.classList.remove('mobile-menu-open');
+      }
+    });
+  }
+}
